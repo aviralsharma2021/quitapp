@@ -211,6 +211,7 @@ const ABSTINENCE_NICOTINE_MILESTONES = [
 
 const NRT_PRODUCTS = ["gum", "lozenge", "spray", "patch24", "patch16", "patchCustom"];
 const NRT_PLAN_PHASE_COUNT = 4;
+const NICOTINE_TREND_MAX_DAYS = 42;
 const NRT_PRODUCT_META = {
   gum: { label: "Gum", defaultMg: 2, defaultPackUnits: 20, defaultPackCost: 0 },
   lozenge: { label: "Lozenge", defaultMg: 2, defaultPackUnits: 20, defaultPackCost: 0 },
@@ -317,6 +318,7 @@ let activeMilestone = null;
 let levelUpContinuation = null;
 let levelUpSequence = [];
 let levelUpSequenceIndex = 0;
+let lastNicotineTrendSignature = "";
 
 const el = {
   levelRing: document.getElementById("levelRing"),
@@ -2355,14 +2357,14 @@ function getNicotineTrendSeries() {
     spanStart = addDaysToDayKey(spanStart, 1);
     spanGuard += 1;
   }
-  if (spanGuard >= 90) {
-    start = addDaysToDayKey(end, -89);
+  if (spanGuard >= NICOTINE_TREND_MAX_DAYS) {
+    start = addDaysToDayKey(end, -(NICOTINE_TREND_MAX_DAYS - 1));
   }
 
   const series = [];
   let cursor = start;
   let guard = 0;
-  while (cursor <= end && guard < 120) {
+  while (cursor <= end && guard < NICOTINE_TREND_MAX_DAYS) {
     if (actual[cursor] != null) {
       series.push({ dayKey: cursor, mg: Number(actual[cursor]) || 0, source: "actual" });
     } else if (planned[cursor] != null) {
@@ -2393,7 +2395,11 @@ function renderNicotineTrendChart() {
 
   const wrapper = canvas.parentElement;
   const visibleWidth = Math.max(280, wrapper?.clientWidth || canvas.clientWidth || 320);
-  const cssWidth = Math.max(visibleWidth, Math.max(360, series.length * 34));
+  const signature = `${window.devicePixelRatio || 1}|${visibleWidth}|${series.map((point) => `${point.dayKey}:${point.mg}:${point.source}`).join(",")}`;
+  if (signature === lastNicotineTrendSignature) return;
+  lastNicotineTrendSignature = signature;
+
+  const cssWidth = Math.max(visibleWidth, Math.min(960, Math.max(360, series.length * 22)));
   const cssHeight = Number(canvas.getAttribute("height") || 220);
   const dpr = window.devicePixelRatio || 1;
 
@@ -2483,7 +2489,8 @@ function renderNicotineTrendChart() {
       const reductionPct = startMg > 0 ? Math.round(((startMg - endMg) / startMg) * 100) : 0;
       const actualDays = series.filter((s) => s.source === "actual").length;
       const plannedDays = series.filter((s) => s.source === "planned").length;
-      el.nicotineTrendSummary.textContent = `Trend: ${startMg.toFixed(1)} -> ${endMg.toFixed(1)} mg/day (${reductionPct}% down). Actual logged days: ${actualDays}. Planned days: ${plannedDays}.`;
+      const recentWindowLabel = series.length >= NICOTINE_TREND_MAX_DAYS ? `Showing recent ${NICOTINE_TREND_MAX_DAYS} days.` : `Showing ${series.length} day${series.length === 1 ? "" : "s"}.`;
+      el.nicotineTrendSummary.textContent = `Trend: ${startMg.toFixed(1)} -> ${endMg.toFixed(1)} mg/day (${reductionPct}% down). Actual logged days: ${actualDays}. Planned days: ${plannedDays}. ${recentWindowLabel}`;
     }
   }
 }
