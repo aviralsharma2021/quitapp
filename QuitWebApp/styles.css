@@ -735,6 +735,15 @@ label {
   font-weight: 700;
 }
 
+.nrt-trend-priority {
+  margin-top: 6px;
+}
+
+.nrt-trend-card {
+  background: linear-gradient(160deg, rgba(241, 253, 249, 0.94), rgba(255, 250, 244, 0.84));
+  border-color: rgba(16, 198, 162, 0.14);
+}
+
 .nrt-plan-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -745,12 +754,15 @@ label {
   border-radius: 12px;
   border: 1px solid rgba(16, 37, 59, 0.14);
   background: rgba(255, 255, 255, 0.32);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   padding: 6px;
 }
 
 #nicotineTrendChart {
-  width: 100%;
+  width: auto;
+  min-width: 100%;
   height: 220px;
   display: block;
 }
@@ -769,6 +781,111 @@ label {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   min-width: 0;
+}
+
+.nrt-card-actions {
+  margin-top: 2px;
+}
+
+.patch-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 78%);
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.patch-strip-card {
+  border: 1px solid rgba(16, 37, 59, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.patch-strip-card.selected {
+  border-color: rgba(16, 198, 162, 0.26);
+  box-shadow: 0 10px 22px rgba(16, 198, 162, 0.12);
+}
+
+.patch-strip-meta {
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.nrt-history-head {
+  margin-top: 10px;
+}
+
+.log-day {
+  border: 1px solid rgba(16, 37, 59, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.42);
+  overflow: hidden;
+}
+
+.log-day summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.log-day summary::-webkit-details-marker {
+  display: none;
+}
+
+.log-day-summary-main {
+  min-width: 0;
+}
+
+.log-day-summary-main .mile-title {
+  margin-bottom: 3px;
+}
+
+.log-day-summary-extra {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.log-day-entries {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.log-entry-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(16, 37, 59, 0.04);
+}
+
+.log-entry-main {
+  min-width: 0;
+}
+
+.log-entry-time {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.log-entry-value {
+  text-align: right;
+  font-size: 0.77rem;
+  color: var(--text);
 }
 
 .coach-card {
@@ -993,6 +1110,10 @@ select {
     border-color: rgba(255, 255, 255, 0.16);
     background: rgba(255, 255, 255, 0.04);
   }
+
+  .nrt-trend-card {
+    background: linear-gradient(160deg, rgba(17, 41, 46, 0.7), rgba(40, 29, 23, 0.44));
+  }
 }
 
 @media (max-width: 370px) {
@@ -1023,6 +1144,10 @@ select {
   }
 
   .quick-patch-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nrt-card-actions {
     grid-template-columns: 1fr;
   }
 

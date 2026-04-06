@@ -356,6 +356,7 @@ const el = {
   triggerCoachSteps: document.getElementById("triggerCoachSteps"),
   profileSheet: document.getElementById("profileSheet"),
   nrtSheet: document.getElementById("nrtSheet"),
+  nrtLogSheet: document.getElementById("nrtLogSheet"),
   quitDateInput: document.getElementById("quitDateInput"),
   productTypeInput: document.getElementById("productTypeInput"),
   currencyInput: document.getElementById("currencyInput"),
@@ -1519,10 +1520,16 @@ function wireNRTSheet() {
   const openBtn = document.getElementById("openNRTSheet");
   const closeBtn = document.getElementById("closeNRT");
   const closeBackdrop = document.getElementById("closeNRTBackdrop");
+  const openLogBtn = document.getElementById("openNRTLogSheet");
+  const closeLogBtn = document.getElementById("closeNRTLog");
+  const closeLogBackdrop = document.getElementById("closeNRTLogBackdrop");
 
   if (openBtn) openBtn.addEventListener("click", openNRTSheet);
   if (closeBtn) closeBtn.addEventListener("click", closeNRTSheet);
   if (closeBackdrop) closeBackdrop.addEventListener("click", closeNRTSheet);
+  if (openLogBtn) openLogBtn.addEventListener("click", openNRTLogSheet);
+  if (closeLogBtn) closeLogBtn.addEventListener("click", closeNRTLogSheet);
+  if (closeLogBackdrop) closeLogBackdrop.addEventListener("click", closeNRTLogSheet);
 }
 
 function openNRTSheet() {
@@ -1535,6 +1542,19 @@ function closeNRTSheet() {
   if (!el.nrtSheet) return;
   el.nrtSheet.classList.add("hidden");
   el.nrtSheet.setAttribute("aria-hidden", "true");
+}
+
+function openNRTLogSheet() {
+  if (!el.nrtLogSheet) return;
+  if (el.nrtHistoryDateTimeInput && !el.nrtHistoryDateTimeInput.value) setNRTLogDateTimeToNow();
+  el.nrtLogSheet.classList.remove("hidden");
+  el.nrtLogSheet.setAttribute("aria-hidden", "false");
+}
+
+function closeNRTLogSheet() {
+  if (!el.nrtLogSheet) return;
+  el.nrtLogSheet.classList.add("hidden");
+  el.nrtLogSheet.setAttribute("aria-hidden", "true");
 }
 
 function hydrateProfileForm() {
@@ -2025,6 +2045,7 @@ function saveNRTUsageLog() {
       patchLabel: getCustomPatchLabel(profile)
     });
     if (el.nrtHistoryQuantityInput) el.nrtHistoryQuantityInput.value = "1";
+    closeNRTLogSheet();
     showFeedback(`${getCustomPatchLabel(profile)} logged at ${new Date(log.timestamp).toLocaleString()}.`);
     return log;
   }
@@ -2038,6 +2059,7 @@ function saveNRTUsageLog() {
 
   const log = logNRTUsage(product, quantity, { timestampISO });
   if (el.nrtHistoryQuantityInput) el.nrtHistoryQuantityInput.value = "1";
+  closeNRTLogSheet();
   showFeedback(`${getNRTProductLabel(product)} logged (${quantity} unit${quantity === 1 ? "" : "s"}) at ${new Date(log.timestamp).toLocaleString()}.`);
   return log;
 }
@@ -2081,7 +2103,11 @@ function renderQuickPatchActions() {
 
 function renderQuickApplyCustomPatchList() {
   if (!el.quickApplyCustomPatchList) return;
-  const profiles = getCustomPatchProfiles();
+  const profiles = [...getCustomPatchProfiles()].sort((a, b) => {
+    if (a.id === state.selectedCustomPatchId) return -1;
+    if (b.id === state.selectedCustomPatchId) return 1;
+    return a.label.localeCompare(b.label);
+  });
 
   if (!profiles.length) {
     el.quickApplyCustomPatchList.innerHTML = `<p class="subtle">No saved patch profiles yet. Create one in Patch Profiles.</p>`;
@@ -2092,14 +2118,15 @@ function renderQuickApplyCustomPatchList() {
   profiles.forEach((profile) => {
     const unitCost = getCustomPatchUnitCost(profile);
     const item = document.createElement("article");
-    item.className = "mile";
+    const selected = profile.id === state.selectedCustomPatchId;
+    item.className = `patch-strip-card${selected ? " selected" : ""}`;
     item.innerHTML = `
       <div class="mile-head">
-        <p class="mile-title">${getCustomPatchLabel(profile)}</p>
-        <span class="pill">${formatMoney(unitCost)}/patch</span>
+        <p class="mile-title">${profile.label}</p>
+        <span class="pill">${selected ? "Default" : `${formatMoney(unitCost)}/patch`}</span>
       </div>
-      <p class="mile-meta">${profile.unitsPerBox} per box • ${formatMoney(profile.boxCost)} box cost</p>
-      <button class="primary-btn" data-apply-custom-patch-id="${profile.id}" style="margin-top:8px;">Apply Now / At Selected Time</button>
+      <p class="patch-strip-meta">${profile.hours}h • ${Number(profile.mgPerUnit).toFixed(1)} mg • ${profile.unitsPerBox} per box</p>
+      <button class="primary-btn" data-apply-custom-patch-id="${profile.id}">Apply</button>
     `;
     el.quickApplyCustomPatchList.appendChild(item);
   });
@@ -2137,32 +2164,87 @@ function renderCustomPatchList() {
 
 function renderNRTLogList() {
   if (!el.nrtLogList) return;
-  const sorted = [...(state.nrtLogs || [])]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 20);
+  const sorted = [...(state.nrtLogs || [])].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   if (!sorted.length) {
     el.nrtLogList.innerHTML = `<p class="subtle">No NRT logs yet. Log current or historical entries to track nicotine and cost by day.</p>`;
     return;
   }
 
-  el.nrtLogList.innerHTML = "";
+  const previouslyOpen = new Set(
+    [...el.nrtLogList.querySelectorAll("details.log-day[open]")]
+      .map((node) => node.dataset.dayKey)
+      .filter(Boolean)
+  );
+
+  const groups = [];
   sorted.forEach((log) => {
-    const productLabel = log.product === "patchCustom"
-      ? (log.patchLabel || `${Math.max(0, Number(log.patchHours || 0)) || "?"}h Patch`)
-      : getNRTProductLabel(log.product);
-    const when = new Date(log.timestamp);
-    const item = document.createElement("article");
-    item.className = "mile";
-    item.innerHTML = `
-      <div class="mile-head">
-        <p class="mile-title">${productLabel} x${log.quantity}</p>
-        <span class="pill">${log.nicotineMg.toFixed(1)} mg</span>
+    const dayKey = getLogDayKey(log);
+    let group = groups.find((entry) => entry.dayKey === dayKey);
+    if (!group) {
+      group = { dayKey, logs: [], nicotine: 0, cost: 0 };
+      groups.push(group);
+    }
+    group.logs.push(log);
+    group.nicotine += Math.max(0, Number(log.nicotineMg || 0));
+    group.cost += Math.max(0, Number(log.cost || 0));
+  });
+
+  el.nrtLogList.innerHTML = "";
+
+  groups.slice(0, 12).forEach((group, idx) => {
+    const labels = [...new Set(group.logs.map((log) =>
+      log.product === "patchCustom"
+        ? (log.patchLabel || `${Math.max(0, Number(log.patchHours || 0)) || "?"}h Patch`)
+        : getNRTProductLabel(log.product)
+    ))];
+    const details = document.createElement("details");
+    details.className = "log-day";
+    details.dataset.dayKey = group.dayKey;
+    if (idx === 0 || previouslyOpen.has(group.dayKey)) details.open = true;
+
+    const dayDate = parseDayKey(group.dayKey);
+    const dayTitle = group.dayKey === getTodayKey()
+      ? "Today"
+      : group.dayKey === addDaysToDayKey(getTodayKey(), -1)
+        ? "Yesterday"
+        : (dayDate ? dayDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : group.dayKey);
+    const productSummary = labels.slice(0, 3).join(" • ");
+    const moreCount = Math.max(0, labels.length - 3);
+
+    details.innerHTML = `
+      <summary>
+        <div class="log-day-summary-main">
+          <p class="mile-title">${dayTitle}</p>
+          <p class="mile-meta">${group.logs.length} entr${group.logs.length === 1 ? "y" : "ies"} • ${productSummary}${moreCount ? ` • +${moreCount} more` : ""}</p>
+        </div>
+        <div class="log-day-summary-extra">
+          <span class="pill">${group.nicotine.toFixed(1)} mg</span>
+          <span class="pill">${formatMoney(group.cost)}</span>
+        </div>
+      </summary>
+      <div class="log-day-entries">
+        ${group.logs.map((log) => {
+          const productLabel = log.product === "patchCustom"
+            ? (log.patchLabel || `${Math.max(0, Number(log.patchHours || 0)) || "?"}h Patch`)
+            : getNRTProductLabel(log.product);
+          const when = new Date(log.timestamp);
+          return `
+            <div class="log-entry-row">
+              <div class="log-entry-main">
+                <p class="mile-title">${productLabel} x${log.quantity}</p>
+                <p class="log-entry-time">${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+              </div>
+              <div class="log-entry-value">
+                <div>${log.nicotineMg.toFixed(1)} mg</div>
+                <div class="log-entry-time">${formatMoney(log.cost)}</div>
+              </div>
+            </div>
+          `;
+        }).join("")}
       </div>
-      <p class="mile-meta">${when.toLocaleDateString()} ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
-      <p class="mile-desc">Cost: ${formatMoney(log.cost)}</p>
     `;
-    el.nrtLogList.appendChild(item);
+    el.nrtLogList.appendChild(details);
   });
 }
 
@@ -2309,9 +2391,14 @@ function renderNicotineTrendChart() {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  const cssWidth = Math.max(280, canvas.clientWidth || 320);
+  const wrapper = canvas.parentElement;
+  const visibleWidth = Math.max(280, wrapper?.clientWidth || canvas.clientWidth || 320);
+  const cssWidth = Math.max(visibleWidth, Math.max(360, series.length * 34));
   const cssHeight = Number(canvas.getAttribute("height") || 220);
   const dpr = window.devicePixelRatio || 1;
+
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
 
   canvas.width = Math.floor(cssWidth * dpr);
   canvas.height = Math.floor(cssHeight * dpr);

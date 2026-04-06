@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="QuitQuest" />
   <title>QuitQuest - Smoke & Vape Quit Game</title>
-  <link rel="stylesheet" href="styles.css?v=20260406-crave-overflow-fix" />
+  <link rel="stylesheet" href="styles.css?v=20260406-crave-ux2" />
 </head>
 <body>
   <div class="ambient">
@@ -108,6 +108,22 @@
     </section>
 
 	    <section id="cravingTab" class="tab-pane">
+	      <section class="card nrt-trend-card">
+	        <div class="section-head">
+	          <h2>Nicotine Trend</h2>
+	          <span class="pill">Swipe</span>
+	        </div>
+	        <p class="subtle">See the taper direction first, then act. Daily nicotine mg comes from your logs and plan.</p>
+	        <p id="nrtQuickSummary" class="subtle"></p>
+	        <p id="nrtConfigNote" class="subtle"></p>
+	        <div class="nrt-plan-wrap nrt-trend-priority">
+	          <div class="trend-canvas-wrap">
+	            <canvas id="nicotineTrendChart" height="220"></canvas>
+	          </div>
+	          <p id="nicotineTrendSummary" class="subtle"></p>
+	        </div>
+	      </section>
+
 	      <section class="card">
         <h2>Craving Rescue</h2>
         <p class="subtle">When the urge hits, run a 90-second surf cycle. The peak usually passes.</p>
@@ -141,6 +157,34 @@
 	        <p id="rescueFeedback" class="feedback"></p>
 	      </section>
 
+	      <section class="card">
+	        <div class="section-head">
+	          <h2>NRT Logbook</h2>
+	          <span class="pill">Compact</span>
+	        </div>
+	        <p class="subtle">Quick-apply saved patches here. Open the log sheet only when you need a new or historical entry.</p>
+	        <div class="quick-patch-grid nrt-card-actions">
+	          <button id="openNRTLogSheet" class="primary-btn">Log NRT</button>
+	          <button id="openNRTSheet" class="secondary-btn">Patch Profiles</button>
+	        </div>
+
+	        <div class="quick-patch-wrap">
+	          <p class="nrt-prod-title">Quick Apply Saved Patches</p>
+	          <div id="quickApplyCustomPatchList" class="patch-strip"></div>
+	          <div class="quick-patch-grid">
+	            <button id="quickLogPatch24" class="primary-btn">Apply Built-in Patch 24h</button>
+	            <button id="quickLogPatch16" class="secondary-btn">Apply Built-in Patch 16h</button>
+	          </div>
+	          <p id="quickPatchInfo" class="subtle"></p>
+	        </div>
+
+	        <div class="section-head nrt-history-head">
+	          <h3>History By Day</h3>
+	          <span class="pill">Grouped</span>
+	        </div>
+	        <div id="nrtLogList" class="timeline"></div>
+	      </section>
+
         <section class="card coach-card">
           <div class="section-head">
             <h2>Fastest Way Through</h2>
@@ -150,53 +194,6 @@
           <p id="triggerCoachCopy" class="subtle">Pick the trigger that matches this moment and the app will give you a short, specific response plan.</p>
           <div id="triggerCoachSteps" class="coach-steps"></div>
         </section>
-
-	      <section class="card">
-	        <div class="section-head">
-	          <h2>NRT (Log-Based)</h2>
-	          <button id="openNRTSheet" class="chip-btn">Patch Profiles</button>
-	        </div>
-	        <p class="subtle">Create named patch profiles in Patch Profiles. Log current or historical usage here.</p>
-	        <p id="nrtQuickSummary" class="subtle"></p>
-
-	        <div class="quick-patch-wrap">
-	          <p class="nrt-prod-title">Quick Apply Saved Patches</p>
-	          <div id="quickApplyCustomPatchList" class="timeline"></div>
-	          <div class="quick-patch-grid">
-	            <button id="quickLogPatch24" class="primary-btn">Apply Built-in Patch 24h</button>
-	            <button id="quickLogPatch16" class="secondary-btn">Apply Built-in Patch 16h</button>
-	          </div>
-	          <p id="quickPatchInfo" class="subtle"></p>
-	        </div>
-
-	        <div class="nrt-prod">
-	          <p class="nrt-prod-title">Log NRT (Now or Historical)</p>
-	          <label>Log date/time
-	            <input id="nrtHistoryDateTimeInput" type="datetime-local" />
-	          </label>
-	          <button id="nrtHistoryUseNowBtn" class="secondary-btn">Use Current Time</button>
-	          <label>NRT type
-	            <select id="nrtHistoryTypeSelect"></select>
-	          </label>
-	          <label>Quantity
-	            <input id="nrtHistoryQuantityInput" type="number" min="1" max="50" step="1" />
-	          </label>
-	          <button id="nrtHistoryLogBtn" class="primary-btn">Log Entry</button>
-	          <button id="undoLastNRTLog" class="secondary-btn">Undo Last NRT Log</button>
-	        </div>
-
-	        <p id="nrtConfigNote" class="subtle"></p>
-	        <div id="nrtLogList" class="timeline"></div>
-
-	        <div class="nrt-plan-wrap">
-	          <h3>Nicotine Trend</h3>
-	          <p class="subtle">Daily nicotine mg from your logs and taper plan, so you can track the direction.</p>
-	          <div class="trend-canvas-wrap">
-	            <canvas id="nicotineTrendChart" height="220"></canvas>
-	          </div>
-	          <p id="nicotineTrendSummary" class="subtle"></p>
-	        </div>
-	      </section>
 	    </section>
 
     <section id="milestonesTab" class="tab-pane">
@@ -326,6 +323,32 @@
 	      </div>
 	    </section>
 
+	    <section id="nrtLogSheet" class="sheet hidden" aria-hidden="true">
+	      <div class="sheet-backdrop" id="closeNRTLogBackdrop"></div>
+	      <div class="sheet-card">
+	        <div class="section-head">
+	          <h2>Log NRT</h2>
+	          <button id="closeNRTLog" class="chip-btn">Done</button>
+	        </div>
+	        <p class="subtle">Use this for current or backdated entries. Patch entries stay one patch per log to avoid accidental multi-apply mistakes.</p>
+	        <div class="nrt-prod">
+	          <p class="nrt-prod-title">Now or Historical Entry</p>
+	          <label>Log date/time
+	            <input id="nrtHistoryDateTimeInput" type="datetime-local" />
+	          </label>
+	          <button id="nrtHistoryUseNowBtn" class="secondary-btn">Use Current Time</button>
+	          <label>NRT type
+	            <select id="nrtHistoryTypeSelect"></select>
+	          </label>
+	          <label>Quantity
+	            <input id="nrtHistoryQuantityInput" type="number" min="1" max="50" step="1" />
+	          </label>
+	          <button id="nrtHistoryLogBtn" class="primary-btn">Log Entry</button>
+	          <button id="undoLastNRTLog" class="secondary-btn">Undo Last NRT Log</button>
+	        </div>
+	      </div>
+	    </section>
+
     <section id="milestoneModal" class="sheet hidden" aria-hidden="true">
       <div class="sheet-backdrop"></div>
       <div class="sheet-card milestone-sheet">
@@ -368,6 +391,6 @@
     </nav>
   </main>
 
-  <script src="app.js?v=20260406-crave-overflow-fix"></script>
+  <script src="app.js?v=20260406-crave-ux2"></script>
 </body>
 </html>
