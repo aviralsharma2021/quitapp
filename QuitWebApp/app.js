@@ -211,7 +211,9 @@ const ABSTINENCE_NICOTINE_MILESTONES = [
 
 const NRT_PRODUCTS = ["gum", "lozenge", "spray", "patch24", "patch16", "patchCustom"];
 const NRT_PLAN_PHASE_COUNT = 4;
-const NICOTINE_TREND_MAX_DAYS = 42;
+const NICOTINE_TREND_MAX_DAYS = 120;
+const NICOTINE_TREND_DEFAULT_PAST_DAYS = 30;
+const NRT_LOG_SWIPE_DELETE_WIDTH = 92;
 const NRT_PRODUCT_META = {
   gum: { label: "Gum", defaultMg: 2, defaultPackUnits: 20, defaultPackCost: 0 },
   lozenge: { label: "Lozenge", defaultMg: 2, defaultPackUnits: 20, defaultPackCost: 0 },
@@ -319,6 +321,8 @@ let levelUpContinuation = null;
 let levelUpSequence = [];
 let levelUpSequenceIndex = 0;
 let lastNicotineTrendSignature = "";
+let lastNRTLogListSignature = "";
+let activeNRTLogSwipe = null;
 
 const el = {
   levelRing: document.getElementById("levelRing"),
@@ -359,6 +363,7 @@ const el = {
   profileSheet: document.getElementById("profileSheet"),
   nrtSheet: document.getElementById("nrtSheet"),
   nrtLogSheet: document.getElementById("nrtLogSheet"),
+  nrtHistorySheet: document.getElementById("nrtHistorySheet"),
   quitDateInput: document.getElementById("quitDateInput"),
   productTypeInput: document.getElementById("productTypeInput"),
   currencyInput: document.getElementById("currencyInput"),
@@ -1525,6 +1530,9 @@ function wireNRTSheet() {
   const openLogBtn = document.getElementById("openNRTLogSheet");
   const closeLogBtn = document.getElementById("closeNRTLog");
   const closeLogBackdrop = document.getElementById("closeNRTLogBackdrop");
+  const openHistoryBtn = document.getElementById("openNRTHistorySheet");
+  const closeHistoryBtn = document.getElementById("closeNRTHistory");
+  const closeHistoryBackdrop = document.getElementById("closeNRTHistoryBackdrop");
 
   if (openBtn) openBtn.addEventListener("click", openNRTSheet);
   if (closeBtn) closeBtn.addEventListener("click", closeNRTSheet);
@@ -1532,6 +1540,9 @@ function wireNRTSheet() {
   if (openLogBtn) openLogBtn.addEventListener("click", openNRTLogSheet);
   if (closeLogBtn) closeLogBtn.addEventListener("click", closeNRTLogSheet);
   if (closeLogBackdrop) closeLogBackdrop.addEventListener("click", closeNRTLogSheet);
+  if (openHistoryBtn) openHistoryBtn.addEventListener("click", openNRTHistorySheet);
+  if (closeHistoryBtn) closeHistoryBtn.addEventListener("click", closeNRTHistorySheet);
+  if (closeHistoryBackdrop) closeHistoryBackdrop.addEventListener("click", closeNRTHistorySheet);
 }
 
 function openNRTSheet() {
@@ -1557,6 +1568,19 @@ function closeNRTLogSheet() {
   if (!el.nrtLogSheet) return;
   el.nrtLogSheet.classList.add("hidden");
   el.nrtLogSheet.setAttribute("aria-hidden", "true");
+}
+
+function openNRTHistorySheet() {
+  if (!el.nrtHistorySheet) return;
+  el.nrtHistorySheet.classList.remove("hidden");
+  el.nrtHistorySheet.setAttribute("aria-hidden", "false");
+}
+
+function closeNRTHistorySheet() {
+  if (!el.nrtHistorySheet) return;
+  el.nrtHistorySheet.classList.add("hidden");
+  el.nrtHistorySheet.setAttribute("aria-hidden", "true");
+  closeOpenNRTLogSwipe();
 }
 
 function hydrateProfileForm() {
@@ -1965,7 +1989,7 @@ function applyCustomPatchProfile(profileId) {
     patchHours: profile.hours,
     patchLabel: getCustomPatchLabel(profile)
   });
-  showFeedback(`${getCustomPatchLabel(profile)} applied. Nicotine +${log.nicotineMg.toFixed(1)} mg, cost +${formatMoney(log.cost)}.`);
+  showFeedback(`${getCustomPatchLabel(profile)} applied. Nicotine +${log.nicotineMg.toFixed(1)} mg.`);
   return log;
 }
 
@@ -2007,6 +2031,21 @@ function createNRTUsageLog(product, quantity, options = {}) {
     patchLabel: options.patchLabel ? String(options.patchLabel) : ""
   };
   return log;
+}
+
+function deleteNRTLog(logId) {
+  const id = String(logId || "");
+  if (!id || !Array.isArray(state.nrtLogs)) return false;
+  const next = state.nrtLogs.filter((log) => String(log.id) !== id);
+  if (next.length === state.nrtLogs.length) return false;
+  state.nrtLogs = next;
+  updateDailyNicotineHistory();
+  lastNRTLogListSignature = "";
+  closeOpenNRTLogSwipe();
+  saveState();
+  renderAll();
+  showFeedback("NRT log deleted.");
+  return true;
 }
 
 function logNRTUsage(product, quantity = 1, options = {}) {
@@ -2078,6 +2117,72 @@ function undoLastNRTLog() {
   showFeedback(`Removed last log: ${getNRTProductLabel(removed.product)} x${removed.quantity}.`);
 }
 
+function isPatchLog(log) {
+  if (!log) return false;
+  return ["patch24", "patch16", "patchCustom"].includes(String(log.product || ""));
+}
+
+function getPatchShortcutConfigFromLog(log) {
+  if (!log || !isPatchLog(log)) return null;
+  if (log.product === "patchCustom") {
+    const profile = getCustomPatchProfileById(log.patchProfileId);
+    return {
+      type: "custom",
+      profileId: log.patchProfileId || "",
+      label: log.patchLabel || profile?.label || getCustomPatchLabel(profile || { hours: log.patchHours || 0, mgPerUnit: log.nicotineMg || 0 }),
+      mg: Number(profile?.mgPerUnit ?? log.nicotineMg ?? 0),
+      hours: Number(profile?.hours ?? log.patchHours ?? 0),
+      badge: "Latest"
+    };
+  }
+
+  const product = log.product === "patch16" ? "patch16" : "patch24";
+  const config = getNRTConfig(product);
+  return {
+    type: "builtIn",
+    product,
+    label: getNRTProductLabel(product),
+    mg: Number(config.mgPerUnit || log.nicotineMg || 0),
+    hours: product === "patch16" ? 16 : 24,
+    badge: "Latest"
+  };
+}
+
+function getFallbackPatchShortcut(product) {
+  const safeProduct = product === "patch16" ? "patch16" : "patch24";
+  const config = getNRTConfig(safeProduct);
+  return {
+    type: "builtIn",
+    product: safeProduct,
+    label: getNRTProductLabel(safeProduct),
+    mg: Number(config.mgPerUnit || 0),
+    hours: safeProduct === "patch16" ? 16 : 24,
+    badge: "Saved"
+  };
+}
+
+function getRecentPatchShortcuts() {
+  const patchLogs = [...(state.nrtLogs || [])]
+    .filter(isPatchLog)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const latest = getPatchShortcutConfigFromLog(patchLogs[0]) || getFallbackPatchShortcut("patch24");
+  const previous = getPatchShortcutConfigFromLog(patchLogs[1])
+    || getFallbackPatchShortcut(latest.product === "patch24" ? "patch16" : "patch24");
+
+  latest.badge = patchLogs[0] ? "Latest" : "Quick";
+  previous.badge = patchLogs[1] ? "Previous" : "Quick";
+  return [latest, previous];
+}
+
+function applyPatchShortcut(shortcut) {
+  if (!shortcut) return null;
+  if (shortcut.type === "custom" && shortcut.profileId) {
+    return applyCustomPatchProfile(shortcut.profileId);
+  }
+  return logQuickPatch(shortcut.product === "patch16" ? "patch16" : "patch24");
+}
+
 function logQuickPatch(product) {
   const safeProduct = product === "patch16" ? "patch16" : "patch24";
   if (el.nrtHistoryTypeSelect && [...el.nrtHistoryTypeSelect.options].some((opt) => opt.value === safeProduct)) {
@@ -2087,20 +2192,23 @@ function logQuickPatch(product) {
   const timestampISO = getSelectedNRTLogTimestampISO();
   const log = logNRTUsage(safeProduct, 1, { timestampISO });
   const label = getNRTProductLabel(safeProduct);
-  showFeedback(`${label} applied at ${new Date(log.timestamp).toLocaleString()}. Nicotine +${log.nicotineMg.toFixed(1)} mg, cost +${formatMoney(log.cost)}.`);
+  showFeedback(`${label} applied at ${new Date(log.timestamp).toLocaleString()}. Nicotine +${log.nicotineMg.toFixed(1)} mg.`);
+  return log;
 }
 
 function renderQuickPatchActions() {
   if (!el.quickLogPatch24 || !el.quickLogPatch16 || !el.quickPatchInfo) return;
 
-  const patch24 = getNRTConfig("patch24");
-  const patch16 = getNRTConfig("patch16");
-  const unitCost24 = Math.max(0, Number(patch24.packCost || 0)) / Math.max(1, Number(patch24.unitsPerPack || 1));
-  const unitCost16 = Math.max(0, Number(patch16.packCost || 0)) / Math.max(1, Number(patch16.unitsPerPack || 1));
+  const [latest, previous] = getRecentPatchShortcuts();
+  const latestHours = latest.hours ? ` • ${latest.hours}h` : "";
+  const previousHours = previous.hours ? ` • ${previous.hours}h` : "";
 
-  el.quickLogPatch24.textContent = `Applied Patch 24h (+${patch24.mgPerUnit} mg)`;
-  el.quickLogPatch16.textContent = `Applied Patch 16h (+${patch16.mgPerUnit} mg)`;
-  el.quickPatchInfo.textContent = `Saved patch costs: 24h ${formatMoney(unitCost24)} each, 16h ${formatMoney(unitCost16)} each. Patch logs are one-tap to avoid accidental multi-patch entries.`;
+  el.quickLogPatch24.dataset.patchShortcut = JSON.stringify(latest);
+  el.quickLogPatch16.dataset.patchShortcut = JSON.stringify(previous);
+
+  el.quickLogPatch24.innerHTML = `${latest.badge}<br>${latest.label} (+${latest.mg.toFixed(1)} mg${latestHours})`;
+  el.quickLogPatch16.innerHTML = `${previous.badge}<br>${previous.label} (+${previous.mg.toFixed(1)} mg${previousHours})`;
+  el.quickPatchInfo.textContent = "These buttons mirror your latest patch routine so re-applying the current plan stays fast.";
 }
 
 function renderQuickApplyCustomPatchList() {
@@ -2118,14 +2226,13 @@ function renderQuickApplyCustomPatchList() {
 
   el.quickApplyCustomPatchList.innerHTML = "";
   profiles.forEach((profile) => {
-    const unitCost = getCustomPatchUnitCost(profile);
     const item = document.createElement("article");
     const selected = profile.id === state.selectedCustomPatchId;
     item.className = `patch-strip-card${selected ? " selected" : ""}`;
     item.innerHTML = `
       <div class="mile-head">
         <p class="mile-title">${profile.label}</p>
-        <span class="pill">${selected ? "Default" : `${formatMoney(unitCost)}/patch`}</span>
+        <span class="pill">${selected ? "Default" : "Saved"}</span>
       </div>
       <p class="patch-strip-meta">${profile.hours}h • ${Number(profile.mgPerUnit).toFixed(1)} mg • ${profile.unitsPerBox} per box</p>
       <button class="primary-btn" data-apply-custom-patch-id="${profile.id}">Apply</button>
@@ -2145,16 +2252,15 @@ function renderCustomPatchList() {
 
   el.customPatchList.innerHTML = "";
   profiles.forEach((profile) => {
-    const unitCost = getCustomPatchUnitCost(profile);
     const selected = state.selectedCustomPatchId === profile.id;
     const item = document.createElement("article");
     item.className = "mile";
     item.innerHTML = `
       <div class="mile-head">
         <p class="mile-title">${getCustomPatchLabel(profile)}</p>
-        <span class="pill">${formatMoney(unitCost)}/patch</span>
+        <span class="pill">${selected ? "Selected" : "Saved"}</span>
       </div>
-      <p class="mile-meta">${profile.unitsPerBox} per box • ${formatMoney(profile.boxCost)} box cost ${selected ? "• Selected" : ""}</p>
+      <p class="mile-meta">${profile.hours}h • ${Number(profile.mgPerUnit).toFixed(1)} mg • ${profile.unitsPerBox} per box</p>
       <div class="rescue-actions" style="margin-top:8px;">
         <button class="secondary-btn" data-select-custom-patch-id="${profile.id}">Set Default</button>
         <button class="danger-btn" data-remove-custom-patch-id="${profile.id}">Remove</button>
@@ -2169,9 +2275,14 @@ function renderNRTLogList() {
   const sorted = [...(state.nrtLogs || [])].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   if (!sorted.length) {
-    el.nrtLogList.innerHTML = `<p class="subtle">No NRT logs yet. Log current or historical entries to track nicotine and cost by day.</p>`;
+    lastNRTLogListSignature = "";
+    el.nrtLogList.innerHTML = `<p class="subtle">No NRT logs yet. Log current or historical entries to build your day-by-day nicotine view.</p>`;
     return;
   }
+
+  const signature = sorted.map((log) => `${log.id}:${log.timestamp}:${log.product}:${log.quantity}:${log.nicotineMg}`).join("|");
+  if (signature === lastNRTLogListSignature && el.nrtLogList.childElementCount) return;
+  lastNRTLogListSignature = signature;
 
   const previouslyOpen = new Set(
     [...el.nrtLogList.querySelectorAll("details.log-day[open]")]
@@ -2184,12 +2295,11 @@ function renderNRTLogList() {
     const dayKey = getLogDayKey(log);
     let group = groups.find((entry) => entry.dayKey === dayKey);
     if (!group) {
-      group = { dayKey, logs: [], nicotine: 0, cost: 0 };
+      group = { dayKey, logs: [], nicotine: 0 };
       groups.push(group);
     }
     group.logs.push(log);
     group.nicotine += Math.max(0, Number(log.nicotineMg || 0));
-    group.cost += Math.max(0, Number(log.cost || 0));
   });
 
   el.nrtLogList.innerHTML = "";
@@ -2222,7 +2332,6 @@ function renderNRTLogList() {
         </div>
         <div class="log-day-summary-extra">
           <span class="pill">${group.nicotine.toFixed(1)} mg</span>
-          <span class="pill">${formatMoney(group.cost)}</span>
         </div>
       </summary>
       <div class="log-day-entries">
@@ -2232,14 +2341,16 @@ function renderNRTLogList() {
             : getNRTProductLabel(log.product);
           const when = new Date(log.timestamp);
           return `
-            <div class="log-entry-row">
-              <div class="log-entry-main">
-                <p class="mile-title">${productLabel} x${log.quantity}</p>
-                <p class="log-entry-time">${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
-              </div>
-              <div class="log-entry-value">
-                <div>${log.nicotineMg.toFixed(1)} mg</div>
-                <div class="log-entry-time">${formatMoney(log.cost)}</div>
+            <div class="log-entry-swipe" data-log-id="${log.id}">
+              <button class="log-entry-delete" data-delete-nrt-log-id="${log.id}">Delete</button>
+              <div class="log-entry-surface">
+                <div class="log-entry-main">
+                  <p class="mile-title">${productLabel} x${log.quantity}</p>
+                  <p class="log-entry-time">${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                </div>
+                <div class="log-entry-value">
+                  <div>${log.nicotineMg.toFixed(1)} mg</div>
+                </div>
               </div>
             </div>
           `;
@@ -2248,6 +2359,43 @@ function renderNRTLogList() {
     `;
     el.nrtLogList.appendChild(details);
   });
+}
+
+function setNRTLogSwipeOffset(row, offsetPx) {
+  if (!(row instanceof HTMLElement)) return;
+  const surface = row.querySelector(".log-entry-surface");
+  if (!(surface instanceof HTMLElement)) return;
+  const clamped = Math.max(-NRT_LOG_SWIPE_DELETE_WIDTH, Math.min(0, Number(offsetPx) || 0));
+  row.dataset.offset = String(clamped);
+  row.classList.toggle("swiped", clamped <= -NRT_LOG_SWIPE_DELETE_WIDTH / 2);
+  surface.style.transform = `translateX(${clamped}px)`;
+}
+
+function closeOpenNRTLogSwipe(exceptLogId = "") {
+  if (!el.nrtLogList) return;
+  el.nrtLogList.querySelectorAll(".log-entry-swipe.swiped").forEach((row) => {
+    if (!(row instanceof HTMLElement)) return;
+    if (exceptLogId && row.dataset.logId === exceptLogId) return;
+    setNRTLogSwipeOffset(row, 0);
+  });
+}
+
+function endActiveNRTLogSwipe(commitOpen = false) {
+  if (!activeNRTLogSwipe) return;
+  const { row, surface, pointerId } = activeNRTLogSwipe;
+  if (surface instanceof HTMLElement && surface.releasePointerCapture) {
+    try {
+      surface.releasePointerCapture(pointerId);
+    } catch (error) {
+      // ignore pointer capture cleanup issues
+    }
+  }
+  if (row instanceof HTMLElement) {
+    row.classList.remove("dragging");
+    const current = Number(row.dataset.offset || 0);
+    setNRTLogSwipeOffset(row, commitOpen && current <= -NRT_LOG_SWIPE_DELETE_WIDTH / 2 ? -NRT_LOG_SWIPE_DELETE_WIDTH : 0);
+  }
+  activeNRTLogSwipe = null;
 }
 
 function getPlanPhaseInputRefs() {
@@ -2395,11 +2543,12 @@ function renderNicotineTrendChart() {
 
   const wrapper = canvas.parentElement;
   const visibleWidth = Math.max(280, wrapper?.clientWidth || canvas.clientWidth || 320);
-  const signature = `${window.devicePixelRatio || 1}|${visibleWidth}|${series.map((point) => `${point.dayKey}:${point.mg}:${point.source}`).join(",")}`;
+  const baselineMg = Math.max(0, getBaselineNicotineMg());
+  const signature = `${window.devicePixelRatio || 1}|${visibleWidth}|${baselineMg}|${series.map((point) => `${point.dayKey}:${point.mg}:${point.source}`).join(",")}`;
   if (signature === lastNicotineTrendSignature) return;
   lastNicotineTrendSignature = signature;
 
-  const cssWidth = Math.max(visibleWidth, Math.min(960, Math.max(360, series.length * 22)));
+  const cssWidth = Math.max(visibleWidth, Math.min(1440, Math.max(360, series.length * 18)));
   const cssHeight = Number(canvas.getAttribute("height") || 220);
   const dpr = window.devicePixelRatio || 1;
 
@@ -2415,7 +2564,7 @@ function renderNicotineTrendChart() {
   const pad = { left: 34, right: 10, top: 14, bottom: 24 };
   const plotW = cssWidth - pad.left - pad.right;
   const plotH = cssHeight - pad.top - pad.bottom;
-  const maxMg = Math.max(1, ...series.map((s) => s.mg));
+  const maxMg = Math.max(1, baselineMg, ...series.map((s) => s.mg));
   const stepX = plotW / Math.max(1, series.length);
   const barW = Math.max(1.2, stepX * 0.72);
   const today = getTodayKey();
@@ -2436,6 +2585,18 @@ function renderNicotineTrendChart() {
     ctx.fillStyle = "rgba(16, 37, 59, 0.62)";
     ctx.fillText(label, 2, y);
   });
+
+  if (baselineMg > 0) {
+    const baselineY = pad.top + plotH - (baselineMg / maxMg) * plotH;
+    ctx.strokeStyle = "rgba(255, 122, 47, 0.92)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, baselineY);
+    ctx.lineTo(pad.left + plotW, baselineY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   series.forEach((point, idx) => {
     const mg = Math.max(0, Number(point.mg || 0));
@@ -2479,6 +2640,19 @@ function renderNicotineTrendChart() {
     ctx.fillText(label, Math.max(2, x - 12), pad.top + plotH + 6);
   });
 
+  const scrollAnchorIndex = Math.max(0, series.findIndex((s) => s.dayKey === today));
+  const maxScroll = Math.max(0, cssWidth - visibleWidth);
+  if (wrapper && maxScroll > 0) {
+    const targetScroll = Math.max(
+      0,
+      Math.min(
+        maxScroll,
+        pad.left + Math.max(0, scrollAnchorIndex + 1) * stepX - visibleWidth + 20
+      )
+    );
+    wrapper.scrollLeft = targetScroll;
+  }
+
   const nonZero = series.filter((s) => s.mg > 0);
   if (el.nicotineTrendSummary) {
     if (!nonZero.length) {
@@ -2489,8 +2663,8 @@ function renderNicotineTrendChart() {
       const reductionPct = startMg > 0 ? Math.round(((startMg - endMg) / startMg) * 100) : 0;
       const actualDays = series.filter((s) => s.source === "actual").length;
       const plannedDays = series.filter((s) => s.source === "planned").length;
-      const recentWindowLabel = series.length >= NICOTINE_TREND_MAX_DAYS ? `Showing recent ${NICOTINE_TREND_MAX_DAYS} days.` : `Showing ${series.length} day${series.length === 1 ? "" : "s"}.`;
-      el.nicotineTrendSummary.textContent = `Trend: ${startMg.toFixed(1)} -> ${endMg.toFixed(1)} mg/day (${reductionPct}% down). Actual logged days: ${actualDays}. Planned days: ${plannedDays}. ${recentWindowLabel}`;
+      const recentWindowLabel = `Showing the current ${Math.min(NICOTINE_TREND_DEFAULT_PAST_DAYS, series.length)}-day view ending at today. Scroll left for older days.`;
+      el.nicotineTrendSummary.textContent = `Trend: ${startMg.toFixed(1)} -> ${endMg.toFixed(1)} mg/day (${reductionPct}% down). Orange line = smoking baseline at ${baselineMg.toFixed(1)} mg/day. Actual logged days: ${actualDays}. Planned days: ${plannedDays}. ${recentWindowLabel}`;
     }
   }
 }
@@ -2500,8 +2674,18 @@ function wireNRTConfigActions() {
   if (el.nrtHistoryUseNowBtn) el.nrtHistoryUseNowBtn.addEventListener("click", setNRTLogDateTimeToNow);
   if (el.nrtHistoryTypeSelect) el.nrtHistoryTypeSelect.addEventListener("change", syncNRTHistoryQuantityInput);
   if (el.undoLastNRTLog) el.undoLastNRTLog.addEventListener("click", undoLastNRTLog);
-  if (el.quickLogPatch24) el.quickLogPatch24.addEventListener("click", () => logQuickPatch("patch24"));
-  if (el.quickLogPatch16) el.quickLogPatch16.addEventListener("click", () => logQuickPatch("patch16"));
+  if (el.quickLogPatch24) {
+    el.quickLogPatch24.addEventListener("click", () => {
+      const shortcut = JSON.parse(el.quickLogPatch24.dataset.patchShortcut || "{}");
+      applyPatchShortcut(shortcut);
+    });
+  }
+  if (el.quickLogPatch16) {
+    el.quickLogPatch16.addEventListener("click", () => {
+      const shortcut = JSON.parse(el.quickLogPatch16.dataset.patchShortcut || "{}");
+      applyPatchShortcut(shortcut);
+    });
+  }
 
   if (el.quickApplyCustomPatchList) {
     el.quickApplyCustomPatchList.addEventListener("click", (event) => {
@@ -2536,6 +2720,73 @@ function wireNRTConfigActions() {
       }
     });
   }
+
+  if (el.nrtLogList) {
+    el.nrtLogList.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const deleteId = target.dataset.deleteNrtLogId;
+      if (!deleteId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      deleteNRTLog(deleteId);
+    });
+
+    el.nrtLogList.addEventListener("pointerdown", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const surface = target.closest(".log-entry-surface");
+      if (!(surface instanceof HTMLElement) || !el.nrtLogList.contains(surface)) return;
+      const row = surface.closest(".log-entry-swipe");
+      if (!(row instanceof HTMLElement)) return;
+
+      closeOpenNRTLogSwipe(row.dataset.logId || "");
+      activeNRTLogSwipe = {
+        pointerId: event.pointerId,
+        row,
+        surface,
+        startX: event.clientX,
+        startY: event.clientY,
+        baseOffset: Number(row.dataset.offset || 0),
+        dragging: false
+      };
+      row.classList.add("dragging");
+      if (surface.setPointerCapture) {
+        try {
+          surface.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // ignore pointer capture failures
+        }
+      }
+    });
+  }
+
+  document.addEventListener("pointermove", (event) => {
+    if (!activeNRTLogSwipe || event.pointerId !== activeNRTLogSwipe.pointerId) return;
+    const dx = event.clientX - activeNRTLogSwipe.startX;
+    const dy = event.clientY - activeNRTLogSwipe.startY;
+
+    if (!activeNRTLogSwipe.dragging) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+        endActiveNRTLogSwipe(false);
+        return;
+      }
+      if (Math.abs(dx) < 8) return;
+      activeNRTLogSwipe.dragging = true;
+    }
+
+    event.preventDefault();
+    setNRTLogSwipeOffset(activeNRTLogSwipe.row, activeNRTLogSwipe.baseOffset + dx);
+  }, { passive: false });
+
+  const finishSwipe = (event) => {
+    if (!activeNRTLogSwipe || event.pointerId !== activeNRTLogSwipe.pointerId) return;
+    const current = Number(activeNRTLogSwipe.row?.dataset.offset || 0);
+    endActiveNRTLogSwipe(current <= -NRT_LOG_SWIPE_DELETE_WIDTH / 2);
+  };
+  document.addEventListener("pointerup", finishSwipe);
+  document.addEventListener("pointercancel", finishSwipe);
+
   if (el.saveNicotinePlan) el.saveNicotinePlan.addEventListener("click", saveNicotinePlanFromForm);
   if (el.applyExamplePlan) el.applyExamplePlan.addEventListener("click", applyExampleNicotinePlan);
 }
@@ -2889,6 +3140,9 @@ function switchTab(tabId) {
   document.querySelectorAll(".tab-pane").forEach((pane) => {
     pane.classList.toggle("active", pane.id === tabId);
   });
+  window.requestAnimationFrame(() => {
+    renderAll();
+  });
 }
 
 function wireHomeActions() {
@@ -3047,7 +3301,7 @@ function renderAll() {
   if (el.nrtQuickSummary) {
     const dayTotals = getNRTLogTotalsForDay();
     const todayLogCount = (state.nrtLogs || []).filter((log) => getLogDayKey(log) === getTodayKey()).length;
-    el.nrtQuickSummary.textContent = `Today: ${dayTotals.nicotine.toFixed(1)} mg logged • ${formatMoney(dayTotals.cost)} support invested • ${todayLogCount} log${todayLogCount === 1 ? "" : "s"}.`;
+    el.nrtQuickSummary.textContent = `Today: ${dayTotals.nicotine.toFixed(1)} mg logged • ${todayLogCount} log${todayLogCount === 1 ? "" : "s"}.`;
   }
   if (el.nrtConfigNote) {
     const effective = getCurrentNicotineEquivalentMg();
@@ -3058,7 +3312,7 @@ function renderAll() {
     if (selectedType.startsWith("custom:")) {
       const profile = getCustomPatchProfileById(selectedType.slice("custom:".length));
       if (profile) {
-        configText = `${getCustomPatchLabel(profile)}: ${profile.mgPerUnit} mg/patch, ${formatMoney(getCustomPatchUnitCost(profile))}/patch.`;
+        configText = `${getCustomPatchLabel(profile)}: ${profile.mgPerUnit} mg/patch.`;
       }
     }
 
@@ -3067,11 +3321,10 @@ function renderAll() {
         ? selectedType
         : (NRT_PRODUCTS.includes(state.nrtSelectedProduct) ? state.nrtSelectedProduct : "gum");
       const cfg = getNRTConfig(product);
-      const unitCost = Math.max(0, Number(cfg.packCost || 0)) / Math.max(1, Number(cfg.unitsPerPack || 1));
-      configText = `${getNRTProductLabel(product)} config: ${cfg.mgPerUnit} mg/unit, ${formatMoney(unitCost)}/unit.`;
+      configText = `${getNRTProductLabel(product)} config: ${cfg.mgPerUnit} mg/unit.`;
     }
 
-    el.nrtConfigNote.textContent = `Today from logs: ${getCurrentNicotineMg().toFixed(1)} mg raw (${effective.toFixed(1)} mg effective) • ${formatMoney(getNRTDailyCost())}. Baseline from smoking/vaping: ${baseline.toFixed(1)} mg/day. ${configText}`;
+    el.nrtConfigNote.textContent = `Today from logs: ${getCurrentNicotineMg().toFixed(1)} mg raw (${effective.toFixed(1)} mg effective). Baseline from smoking/vaping: ${baseline.toFixed(1)} mg/day. ${configText}`;
   }
   el.cigsAvoided.textContent = Math.floor(getCigsAvoided()).toLocaleString();
   el.cravingsResisted.textContent = state.cravingsResisted.toLocaleString();

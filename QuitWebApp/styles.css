@@ -147,15 +147,17 @@ h2 {
 
 .tab-pane {
   display: none;
-  animation: fadeSlide 0.35s ease;
   gap: 14px;
   padding-bottom: 8px;
   scroll-padding-bottom: 120px;
   min-width: 0;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .tab-pane.active {
   display: grid;
+  animation: fadeSlide 0.35s ease both;
 }
 
 .tab-pane > * {
@@ -785,6 +787,7 @@ label {
 
 .nrt-card-actions {
   margin-top: 2px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .patch-strip {
@@ -820,6 +823,10 @@ label {
 
 .nrt-history-head {
   margin-top: 10px;
+}
+
+.history-sheet-card {
+  max-height: 86dvh;
 }
 
 .log-day {
@@ -864,13 +871,41 @@ label {
   padding: 0 12px 12px;
 }
 
-.log-entry-row {
+.log-entry-swipe {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  touch-action: pan-y;
+}
+
+.log-entry-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 92px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(255, 110, 98, 0.94), rgba(239, 72, 54, 0.94));
+  color: #fff;
+  font-weight: 700;
+}
+
+.log-entry-surface {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
   padding: 9px 10px;
   border-radius: 12px;
   background: rgba(16, 37, 59, 0.04);
+  transition: transform 0.18s ease;
+  will-change: transform;
+}
+
+.log-entry-swipe.dragging .log-entry-surface {
+  transition: none;
 }
 
 .log-entry-main {
@@ -972,9 +1007,16 @@ select {
 .reveal-3,
 .reveal-4,
 .reveal-5 {
-  opacity: 0;
-  transform: translateY(14px);
-  animation: reveal 0.5s ease forwards;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tab-pane.active .reveal-1,
+.tab-pane.active .reveal-2,
+.tab-pane.active .reveal-3,
+.tab-pane.active .reveal-4,
+.tab-pane.active .reveal-5 {
+  animation: reveal 0.5s ease both;
 }
 
 .reveal-2 { animation-delay: 0.07s; }
@@ -983,6 +1025,11 @@ select {
 .reveal-5 { animation-delay: 0.24s; }
 
 @keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
   to {
     opacity: 1;
     transform: translateY(0);

@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="QuitQuest" />
   <title>QuitQuest - Smoke & Vape Quit Game</title>
-  <link rel="stylesheet" href="styles.css?v=20260406-trend-bounds" />
+  <link rel="stylesheet" href="styles.css?v=20260406-nrt-sheet-pass" />
 </head>
 <body>
   <div class="ambient">
@@ -108,22 +108,6 @@
     </section>
 
 	    <section id="cravingTab" class="tab-pane">
-	      <section class="card nrt-trend-card">
-	        <div class="section-head">
-	          <h2>Nicotine Trend</h2>
-	          <span class="pill">Swipe</span>
-	        </div>
-	        <p class="subtle">See the taper direction first, then act. Daily nicotine mg comes from your logs and plan.</p>
-	        <p id="nrtQuickSummary" class="subtle"></p>
-	        <p id="nrtConfigNote" class="subtle"></p>
-	        <div class="nrt-plan-wrap nrt-trend-priority">
-	          <div class="trend-canvas-wrap">
-	            <canvas id="nicotineTrendChart" height="220"></canvas>
-	          </div>
-	          <p id="nicotineTrendSummary" class="subtle"></p>
-	        </div>
-	      </section>
-
 	      <section class="card">
         <h2>Craving Rescue</h2>
         <p class="subtle">When the urge hits, run a 90-second surf cycle. The peak usually passes.</p>
@@ -157,14 +141,31 @@
 	        <p id="rescueFeedback" class="feedback"></p>
 	      </section>
 
+	      <section class="card nrt-trend-card">
+	        <div class="section-head">
+	          <h2>Nicotine Trend</h2>
+	          <span class="pill">Swipe</span>
+	        </div>
+	        <p class="subtle">See the taper direction first, then act. Daily nicotine mg comes from your logs and plan.</p>
+	        <p id="nrtQuickSummary" class="subtle"></p>
+	        <p id="nrtConfigNote" class="subtle"></p>
+	        <div class="nrt-plan-wrap nrt-trend-priority">
+	          <div class="trend-canvas-wrap">
+	            <canvas id="nicotineTrendChart" height="220"></canvas>
+	          </div>
+	          <p id="nicotineTrendSummary" class="subtle"></p>
+	        </div>
+	      </section>
+
 	      <section class="card">
 	        <div class="section-head">
 	          <h2>NRT Logbook</h2>
 	          <span class="pill">Compact</span>
 	        </div>
-	        <p class="subtle">Quick-apply saved patches here. Open the log sheet only when you need a new or historical entry.</p>
+	        <p class="subtle">Quick-apply saved patches here. Open sheets only when you want to log, review, or edit history.</p>
 	        <div class="quick-patch-grid nrt-card-actions">
 	          <button id="openNRTLogSheet" class="primary-btn">Log NRT</button>
+	          <button id="openNRTHistorySheet" class="secondary-btn">History</button>
 	          <button id="openNRTSheet" class="secondary-btn">Patch Profiles</button>
 	        </div>
 
@@ -177,12 +178,6 @@
 	          </div>
 	          <p id="quickPatchInfo" class="subtle"></p>
 	        </div>
-
-	        <div class="section-head nrt-history-head">
-	          <h3>History By Day</h3>
-	          <span class="pill">Grouped</span>
-	        </div>
-	        <div id="nrtLogList" class="timeline"></div>
 	      </section>
 
         <section class="card coach-card">
@@ -349,6 +344,18 @@
 	      </div>
 	    </section>
 
+	    <section id="nrtHistorySheet" class="sheet hidden" aria-hidden="true">
+	      <div class="sheet-backdrop" id="closeNRTHistoryBackdrop"></div>
+	      <div class="sheet-card history-sheet-card">
+	        <div class="section-head">
+	          <h2>NRT History</h2>
+	          <button id="closeNRTHistory" class="chip-btn">Done</button>
+	        </div>
+	        <p class="subtle">Swipe an entry left to delete it. History is grouped by day so it stays easy to scan.</p>
+	        <div id="nrtLogList" class="timeline"></div>
+	      </div>
+	    </section>
+
     <section id="milestoneModal" class="sheet hidden" aria-hidden="true">
       <div class="sheet-backdrop"></div>
       <div class="sheet-card milestone-sheet">
@@ -391,6 +398,6 @@
     </nav>
   </main>
 
-  <script src="app.js?v=20260406-trend-bounds"></script>
+  <script src="app.js?v=20260406-nrt-sheet-pass"></script>
 </body>
 </html>
