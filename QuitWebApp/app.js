@@ -40,6 +40,7 @@ const DEFAULT_STATE = {
   titleTokens: 0,
   dailyRecords: {},
   smokeLogByDay: {},
+  dailyActionLog: {},
   lastWeeklyReviewDate: new Date().toISOString().slice(0, 10),
   dailyNicotineHistory: {},
   milestoneStatus: {},
@@ -242,6 +243,69 @@ const CIGARETTE_STRENGTH_NICOTINE_MG = {
   strong: 1.4
 };
 
+const TRIGGER_COACH_MAP = {
+  Stress: {
+    badge: "Stress",
+    title: "Calm the body before you negotiate with the craving.",
+    copy: "Stress urges feel urgent because your nervous system is activated. Lower the activation first and the craving usually loses volume.",
+    steps: [
+      "Run one 90-second rescue cycle before deciding anything.",
+      "Exhale longer than you inhale for five breaths.",
+      "If NRT is part of your plan, use the smallest effective support instead of white-knuckling."
+    ]
+  },
+  Boredom: {
+    badge: "Boredom",
+    title: "Change the scene fast and give your hands a job.",
+    copy: "Boredom cravings are usually cue cravings. They fade quicker when you switch context instead of debating with them.",
+    steps: [
+      "Stand up and move to a different room or outside edge.",
+      "Do one tiny task with your hands for two minutes.",
+      "Open your next reward or quest after the urge drops."
+    ]
+  },
+  "After meal": {
+    badge: "After Meal",
+    title: "Break the old finish-the-meal script immediately.",
+    copy: "This urge is often about routine, not need. A fast replacement ritual protects the chain better than willpower alone.",
+    steps: [
+      "Brush teeth, chew gum, or switch to cold water or tea.",
+      "Walk for three minutes before sitting back down.",
+      "Tell yourself: meal finished, craving dismissed, run protected."
+    ]
+  },
+  Coffee: {
+    badge: "Coffee",
+    title: "Keep the coffee, change the ritual around it.",
+    copy: "You do not need to give the urge your whole morning. Small changes in posture, hand use, or location can weaken the pairing.",
+    steps: [
+      "Drink from a different spot or with your non-dominant hand.",
+      "Pair the first sips with slow breathing instead of nicotine.",
+      "Stay with the discomfort for one minute and let it peak down."
+    ]
+  },
+  "Work break": {
+    badge: "Work Break",
+    title: "Protect the break so it becomes recovery, not relapse.",
+    copy: "Breaks are supposed to lower pressure. Use them to reset your brain and keep the quit intact.",
+    steps: [
+      "Avoid the usual smoking zone for this break.",
+      "Walk, stretch, or message someone instead of standing still.",
+      "Come back with one win logged so the break feels productive."
+    ]
+  },
+  Social: {
+    badge: "Social",
+    title: "Decide before the moment decides for you.",
+    copy: "Social cravings hit fast. A pre-made script protects your quit better than trying to improvise under pressure.",
+    steps: [
+      "Use a short line like: not smoking, just riding this out.",
+      "Keep a drink, gum, or patch plan ready before the interaction.",
+      "Leave the cue zone for two minutes if the urge spikes."
+    ]
+  }
+};
+
 let state = loadState();
 let activeFilter = "all";
 let rescueInterval = null;
@@ -260,6 +324,14 @@ const el = {
   timeClean: document.getElementById("timeClean"),
   xpText: document.getElementById("xpText"),
   trustScore: document.getElementById("trustScore"),
+  heroMood: document.getElementById("heroMood"),
+  protectPill: document.getElementById("protectPill"),
+  protectTitle: document.getElementById("protectTitle"),
+  protectCopy: document.getElementById("protectCopy"),
+  protectLossText: document.getElementById("protectLossText"),
+  guardMeter: document.getElementById("guardMeter"),
+  protectRunBtn: document.getElementById("protectRunBtn"),
+  viewRewardsBtn: document.getElementById("viewRewardsBtn"),
   moneySaved: document.getElementById("moneySaved"),
   nrtSpent: document.getElementById("nrtSpent"),
   netSavings: document.getElementById("netSavings"),
@@ -278,6 +350,10 @@ const el = {
   rescueTime: document.getElementById("rescueTime"),
   rescueFeedback: document.getElementById("rescueFeedback"),
   selectedTrigger: document.getElementById("selectedTrigger"),
+  triggerCoachPill: document.getElementById("triggerCoachPill"),
+  triggerCoachTitle: document.getElementById("triggerCoachTitle"),
+  triggerCoachCopy: document.getElementById("triggerCoachCopy"),
+  triggerCoachSteps: document.getElementById("triggerCoachSteps"),
   profileSheet: document.getElementById("profileSheet"),
   nrtSheet: document.getElementById("nrtSheet"),
   quitDateInput: document.getElementById("quitDateInput"),
@@ -341,6 +417,7 @@ const el = {
 };
 
 wireTabs();
+wireHomeActions();
 wireProfileSheet();
 wireNRTSheet();
 wireCravingActions();
@@ -381,6 +458,7 @@ function loadState() {
     merged.nicotinePlan = normalizeNicotinePlan(parsed?.nicotinePlan);
     merged.cigaretteStrength = normalizeCigaretteStrength(parsed?.cigaretteStrength);
     merged.smokeLogByDay = normalizeSmokeLogByDay(parsed?.smokeLogByDay);
+    merged.dailyActionLog = normalizeDailyActionLog(parsed?.dailyActionLog);
     merged.lastWeeklyReviewDate = isDayKey(parsed?.lastWeeklyReviewDate) ? parsed.lastWeeklyReviewDate : getTodayKey();
     merged.milestoneClaimedAt = normalizeMilestoneClaimedAt(parsed?.milestoneClaimedAt);
     merged.milestoneClaimedXP = normalizeMilestoneClaimedXP(parsed?.milestoneClaimedXP);
@@ -517,6 +595,20 @@ function normalizeNicotinePlan(rawPlan) {
   }
 
   return { startDate, phases };
+}
+
+function normalizeDailyActionLog(rawDailyActionLog) {
+  if (!rawDailyActionLog || typeof rawDailyActionLog !== "object") return {};
+
+  const normalized = {};
+  Object.entries(rawDailyActionLog).forEach(([dayKey, value]) => {
+    if (!isDayKey(dayKey) || !value || typeof value !== "object") return;
+    normalized[dayKey] = {
+      rescuesCompleted: Math.max(0, Math.round(Number(value.rescuesCompleted || 0))),
+      resistedLogs: Math.max(0, Math.round(Number(value.resistedLogs || 0)))
+    };
+  });
+  return normalized;
 }
 
 function normalizeCigaretteStrength(value) {
@@ -919,6 +1011,20 @@ function getQuestCompletedCount() {
   return Object.keys(record.completed).length;
 }
 
+function getDailyActionRecord(dayKey = getTodayKey()) {
+  return state.dailyActionLog?.[dayKey] || { rescuesCompleted: 0, resistedLogs: 0 };
+}
+
+function noteDailyAction(type, amount = 1) {
+  const dayKey = getTodayKey();
+  const current = getDailyActionRecord(dayKey);
+  state.dailyActionLog[dayKey] = {
+    rescuesCompleted: Math.max(0, Number(current.rescuesCompleted || 0)),
+    resistedLogs: Math.max(0, Number(current.resistedLogs || 0))
+  };
+  state.dailyActionLog[dayKey][type] = Math.max(0, Number(state.dailyActionLog[dayKey][type] || 0) + Number(amount || 1));
+}
+
 function completeQuest(id) {
   const day = getTodayKey();
   const record = state.dailyRecords[day];
@@ -1256,6 +1362,7 @@ function maybeOpenMysteryChest(probability = 0.35) {
 
 function logResistedCraving() {
   state.cravingsResisted += 1;
+  noteDailyAction("resistedLogs");
   const bonus = 20 + Math.min(30, state.cravingsResisted % 6 === 0 ? 20 : 10);
   awardXP(bonus, "Craving resisted");
   maybeOpenMysteryChest(0.35);
@@ -1381,13 +1488,7 @@ function logSlip() {
 function wireTabs() {
   document.querySelectorAll(".nav-item").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const tab = btn.dataset.tab;
-      document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
-      btn.classList.add("active");
-
-      document.querySelectorAll(".tab-pane").forEach((pane) => {
-        pane.classList.toggle("active", pane.id === tab);
-      });
+      switchTab(btn.dataset.tab);
     });
   });
 }
@@ -1544,6 +1645,7 @@ function clearProgressForFreshRun() {
   state.titleTokens = 0;
   state.dailyRecords = {};
   state.smokeLogByDay = {};
+  state.dailyActionLog = {};
   state.lastWeeklyReviewDate = getTodayKey();
   state.dailyNicotineHistory = {};
   state.nrtLogs = [];
@@ -1823,6 +1925,13 @@ function applyCustomPatchProfile(profileId) {
 
   state.selectedCustomPatchId = profile.id;
   saveState();
+  if (el.nrtHistoryTypeSelect) {
+    const customValue = `custom:${profile.id}`;
+    if ([...el.nrtHistoryTypeSelect.options].some((opt) => opt.value === customValue)) {
+      el.nrtHistoryTypeSelect.value = customValue;
+      syncNRTHistoryQuantityInput();
+    }
+  }
 
   const unitCost = getCustomPatchUnitCost(profile);
   const timestampISO = getSelectedNRTLogTimestampISO();
@@ -1947,6 +2056,10 @@ function undoLastNRTLog() {
 
 function logQuickPatch(product) {
   const safeProduct = product === "patch16" ? "patch16" : "patch24";
+  if (el.nrtHistoryTypeSelect && [...el.nrtHistoryTypeSelect.options].some((opt) => opt.value === safeProduct)) {
+    el.nrtHistoryTypeSelect.value = safeProduct;
+    syncNRTHistoryQuantityInput();
+  }
   const timestampISO = getSelectedNRTLogTimestampISO();
   const log = logNRTUsage(safeProduct, 1, { timestampISO });
   const label = getNRTProductLabel(safeProduct);
@@ -2602,6 +2715,7 @@ function wireCravingActions() {
       state.selectedTrigger = btn.dataset.trigger;
       el.selectedTrigger.textContent = `Trigger: ${state.selectedTrigger}`;
       saveState();
+      renderTriggerCoach();
     });
   });
 
@@ -2610,6 +2724,7 @@ function wireCravingActions() {
     if (match) match.classList.add("active");
     el.selectedTrigger.textContent = `Trigger: ${state.selectedTrigger}`;
   }
+  renderTriggerCoach();
 }
 
 function startRescue() {
@@ -2627,6 +2742,7 @@ function startRescue() {
     if (rescueRemaining <= 0) {
       clearInterval(rescueInterval);
       rescueRunning = false;
+      noteDailyAction("rescuesCompleted");
       awardXP(45, "Rescue complete");
       maybeOpenMysteryChest(0.4);
       saveState();
@@ -2672,6 +2788,144 @@ function showFeedback(msg) {
   el.rescueFeedback.textContent = msg;
 }
 
+function switchTab(tabId) {
+  document.querySelectorAll(".nav-item").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tabId);
+  });
+  document.querySelectorAll(".tab-pane").forEach((pane) => {
+    pane.classList.toggle("active", pane.id === tabId);
+  });
+}
+
+function wireHomeActions() {
+  if (el.protectRunBtn) {
+    el.protectRunBtn.addEventListener("click", () => {
+      switchTab("cravingTab");
+      showFeedback("Protect mode: get ahead of the urge before it gets louder.");
+    });
+  }
+  if (el.viewRewardsBtn) {
+    el.viewRewardsBtn.addEventListener("click", () => {
+      switchTab("milestonesTab");
+    });
+  }
+}
+
+function getHeroMoodText() {
+  if (isPlanningMode()) {
+    return "Preparation beats willpower. Build the runway now.";
+  }
+
+  const hours = getElapsedHours();
+  if (hours < 24) return "The first day is expensive. Every clean hour is worth defending.";
+  if (hours < 72) return "This is the rewiring window. Short urges are not worth the reset.";
+  if (hours < 168) return "You are past the first shock. Protect the streak and let momentum work.";
+  return "Your quit is compounding. Keep the urge temporary and the identity permanent.";
+}
+
+function getProtectionStatus() {
+  const next = getNextMilestone();
+  const questCount = getQuestCompletedCount();
+  const dailyActions = getDailyActionRecord();
+  const hasSupportToday = (state.nrtLogs || []).some((log) => getLogDayKey(log) === getTodayKey());
+  const hasTriggerPlan = Boolean(state.selectedTrigger);
+  let points = 1;
+
+  if (questCount >= 1) points += 1;
+  if (questCount >= 3) points += 1;
+  if (dailyActions.rescuesCompleted > 0 || dailyActions.resistedLogs > 0) points += 1;
+  if (hasSupportToday || hasTriggerPlan) points += 1;
+
+  const total = 5;
+  const clamped = Math.max(0, Math.min(total, points));
+
+  if (isPlanningMode()) {
+    const title = clamped >= 3
+      ? "Quit day is getting easier because you are preparing it on purpose."
+      : "The easiest quit is the one you set up before the cravings arrive.";
+    const copy = next
+      ? `Your next prep reward is ${next.title}. Each small setup step removes friction from quit day.`
+      : "Keep setting up cues, support, and replacement rituals until quit day feels obvious.";
+    return {
+      points: clamped,
+      total,
+      pill: `Prep ${clamped}/${total}`,
+      title,
+      copy,
+      lossText: "Preparation is protective. The less you leave to willpower, the less the urge can bargain with."
+    };
+  }
+
+  const tone = clamped <= 2 ? "Vulnerable" : clamped === 3 ? "Steady" : clamped === 4 ? "Protected" : "Locked";
+  let title = "The next urge is not worth the progress you already own.";
+  let copy = "You start each day with momentum. Build protection by using rescue early, finishing small quests, and keeping your support tools close.";
+  if (clamped <= 2) {
+    title = "Your run is still exposed. One small win right now changes the day.";
+    copy = "Use rescue before the craving peaks, then stack one quest or support action so the quit feels defended, not fragile.";
+  } else if (clamped === 3) {
+    title = "You have momentum now. The smart move is to keep it expensive to lose.";
+    copy = "You are not chasing perfection. You are making the next cigarette feel smaller than what you would give up.";
+  } else if (clamped >= 4) {
+    title = "Today already has real protection around it. Keep the urge temporary.";
+    copy = "The strongest quit days are not the easiest ones. They are the ones where you protect what you built before the craving can negotiate.";
+  }
+
+  const rewardText = next ? `${next.title} ${milestoneEtaLabel(next)}` : "another major reward";
+  return {
+    points: clamped,
+    total,
+    pill: `${tone} ${clamped}/${total}`,
+    title,
+    copy,
+    lossText: `Protect today and ${rewardText} gets closer. A cigarette buys minutes and asks for your chain, trust, and next unlock in return.`
+  };
+}
+
+function renderProtectState() {
+  if (!el.protectPill || !el.protectTitle || !el.protectCopy || !el.guardMeter || !el.protectLossText) return;
+
+  const status = getProtectionStatus();
+  el.protectPill.textContent = status.pill;
+  el.protectTitle.textContent = status.title;
+  el.protectCopy.textContent = status.copy;
+  el.protectLossText.textContent = status.lossText;
+  el.guardMeter.innerHTML = "";
+
+  for (let i = 0; i < status.total; i += 1) {
+    const dot = document.createElement("span");
+    dot.className = `guard-dot${i < status.points ? " active" : ""}`;
+    el.guardMeter.appendChild(dot);
+  }
+}
+
+function renderTriggerCoach() {
+  if (!el.triggerCoachPill || !el.triggerCoachTitle || !el.triggerCoachCopy || !el.triggerCoachSteps) return;
+
+  const selected = state.selectedTrigger && TRIGGER_COACH_MAP[state.selectedTrigger]
+    ? TRIGGER_COACH_MAP[state.selectedTrigger]
+    : {
+        badge: "Ready",
+        title: "Protect the next 10 minutes, not forever.",
+        copy: "Short, specific actions beat debating with a craving. Pick the trigger that matches the moment, then follow the plan.",
+        steps: [
+          "Start the 90-second rescue before the urge gets louder.",
+          "Name the trigger so your response becomes automatic next time.",
+          "Use gum, patch, or another planned support tool if that is part of your quit strategy."
+        ]
+      };
+
+  el.triggerCoachPill.textContent = selected.badge;
+  el.triggerCoachTitle.textContent = selected.title;
+  el.triggerCoachCopy.textContent = selected.copy;
+  el.triggerCoachSteps.innerHTML = "";
+  selected.steps.forEach((step, idx) => {
+    const item = document.createElement("div");
+    item.className = "coach-step";
+    item.innerHTML = `<span class="coach-step-num">${idx + 1}</span><p>${step}</p>`;
+    el.triggerCoachSteps.appendChild(item);
+  });
+}
+
 function renderAll() {
   updateDailyNicotineHistory();
   const quitMs = getQuitDateMs();
@@ -2689,29 +2943,48 @@ function renderAll() {
   }
   el.xpText.textContent = `${totalXP} XP • ${levelData.xpToNext} to next`;
   el.trustScore.textContent = `Trust ${getTrustScore()}`;
+  if (el.heroMood) el.heroMood.textContent = getHeroMoodText();
 
   el.moneySaved.textContent = formatMoney(getMoneySaved());
   el.nrtSpent.textContent = formatMoney(getNRTSpent());
-  el.netSavings.textContent = formatMoney(getMoneySaved() - getNRTSpent());
-  el.nicotineToday.textContent = `${getCurrentNicotineMg().toFixed(1)} mg`;
+  if (el.netSavings) el.netSavings.textContent = formatMoney(getMoneySaved() - getNRTSpent());
+  if (el.nicotineToday) el.nicotineToday.textContent = `${getCurrentNicotineMg().toFixed(1)} mg`;
   el.nicotineReduction.textContent = `${Math.round(getNicotineReductionPct())}%`;
   if (el.nrtQuickSummary) {
     const dayTotals = getNRTLogTotalsForDay();
     const todayLogCount = (state.nrtLogs || []).filter((log) => getLogDayKey(log) === getTodayKey()).length;
-    el.nrtQuickSummary.textContent = `Today: ${dayTotals.nicotine.toFixed(1)} mg logged • ${formatMoney(dayTotals.cost)} spent • ${todayLogCount} log${todayLogCount === 1 ? "" : "s"}.`;
+    el.nrtQuickSummary.textContent = `Today: ${dayTotals.nicotine.toFixed(1)} mg logged • ${formatMoney(dayTotals.cost)} support invested • ${todayLogCount} log${todayLogCount === 1 ? "" : "s"}.`;
   }
   if (el.nrtConfigNote) {
-    const product = NRT_PRODUCTS.includes(state.nrtSelectedProduct) ? state.nrtSelectedProduct : "gum";
-    const cfg = getNRTConfig(product);
-    const unitCost = Math.max(0, Number(cfg.packCost || 0)) / Math.max(1, Number(cfg.unitsPerPack || 1));
     const effective = getCurrentNicotineEquivalentMg();
     const baseline = getBaselineNicotineMg();
-    el.nrtConfigNote.textContent = `Today from logs: ${getCurrentNicotineMg().toFixed(1)} mg raw (${effective.toFixed(1)} mg effective) • ${formatMoney(getNRTDailyCost())}. Baseline from smoking/vaping: ${baseline.toFixed(1)} mg/day. ${getNRTProductLabel(product)} config: ${cfg.mgPerUnit} mg/unit, ${formatMoney(unitCost)}/unit.`;
+    const selectedType = String(el.nrtHistoryTypeSelect?.value || "");
+    let configText = "";
+
+    if (selectedType.startsWith("custom:")) {
+      const profile = getCustomPatchProfileById(selectedType.slice("custom:".length));
+      if (profile) {
+        configText = `${getCustomPatchLabel(profile)}: ${profile.mgPerUnit} mg/patch, ${formatMoney(getCustomPatchUnitCost(profile))}/patch.`;
+      }
+    }
+
+    if (!configText) {
+      const product = NRT_PRODUCTS.includes(selectedType)
+        ? selectedType
+        : (NRT_PRODUCTS.includes(state.nrtSelectedProduct) ? state.nrtSelectedProduct : "gum");
+      const cfg = getNRTConfig(product);
+      const unitCost = Math.max(0, Number(cfg.packCost || 0)) / Math.max(1, Number(cfg.unitsPerPack || 1));
+      configText = `${getNRTProductLabel(product)} config: ${cfg.mgPerUnit} mg/unit, ${formatMoney(unitCost)}/unit.`;
+    }
+
+    el.nrtConfigNote.textContent = `Today from logs: ${getCurrentNicotineMg().toFixed(1)} mg raw (${effective.toFixed(1)} mg effective) • ${formatMoney(getNRTDailyCost())}. Baseline from smoking/vaping: ${baseline.toFixed(1)} mg/day. ${configText}`;
   }
   el.cigsAvoided.textContent = Math.floor(getCigsAvoided()).toLocaleString();
   el.cravingsResisted.textContent = state.cravingsResisted.toLocaleString();
   el.shieldCount.textContent = `${state.streakShields} (+${state.shieldFragments}/3)`;
 
+  renderProtectState();
+  renderTriggerCoach();
   renderNextUnlock();
   renderQuests();
   renderMilestones();

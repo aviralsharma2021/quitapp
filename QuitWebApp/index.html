@@ -39,10 +39,26 @@
             <span id="xpText">0 XP</span>
             <span id="trustScore">Trust 50</span>
           </div>
+          <p id="heroMood" class="hero-mood">You are building something worth protecting.</p>
         </div>
       </section>
 
-      <section class="stats-grid reveal-3">
+      <section class="card protect-card reveal-3">
+        <div class="section-head">
+          <h2>Protect The Run</h2>
+          <span id="protectPill" class="pill">Guard 1/5</span>
+        </div>
+        <p id="protectTitle" class="next-title">The next urge is not worth the progress you already own.</p>
+        <p id="protectCopy" class="subtle">You start each day with momentum. Build protection by using rescue early, finishing small quests, and keeping your support tools close.</p>
+        <div id="guardMeter" class="guard-meter" aria-hidden="true"></div>
+        <p id="protectLossText" class="protect-loss">Protect today and your next reward gets closer. A slip only buys a few minutes and asks for much more in return.</p>
+        <div class="protect-actions">
+          <button id="protectRunBtn" class="primary-btn">Protect My Quit</button>
+          <button id="viewRewardsBtn" class="secondary-btn">See Rewards</button>
+        </div>
+      </section>
+
+      <section class="stats-grid reveal-4">
         <article class="card stat-card">
           <p>Money Saved</p>
           <h3 id="moneySaved">$0.00</h3>
@@ -56,20 +72,12 @@
           <h3 id="cravingsResisted">0</h3>
         </article>
         <article class="card stat-card">
-          <p>Streak Shields</p>
+          <p>Quit Shields</p>
           <h3 id="shieldCount">0</h3>
         </article>
         <article class="card stat-card">
-          <p>NRT Spent</p>
+          <p>Support Invested</p>
           <h3 id="nrtSpent">$0.00</h3>
-        </article>
-        <article class="card stat-card">
-          <p>Net Savings</p>
-          <h3 id="netSavings">$0.00</h3>
-        </article>
-        <article class="card stat-card">
-          <p>Nicotine Today</p>
-          <h3 id="nicotineToday">0 mg</h3>
         </article>
         <article class="card stat-card">
           <p>Nicotine Reduction</p>
@@ -77,9 +85,9 @@
         </article>
       </section>
 
-      <section class="card reveal-4">
+      <section class="card reveal-5">
         <div class="section-head">
-          <h2>Next Unlock</h2>
+          <h2>Closest Reward</h2>
           <span id="nextUnlockEta" class="pill">Soon</span>
         </div>
         <p id="nextUnlockTitle" class="next-title">Complete setup to begin</p>
@@ -128,6 +136,16 @@
 
 	        <p id="rescueFeedback" class="feedback"></p>
 	      </section>
+
+        <section class="card coach-card">
+          <div class="section-head">
+            <h2>Fastest Way Through</h2>
+            <span id="triggerCoachPill" class="pill">Ready</span>
+          </div>
+          <p id="triggerCoachTitle" class="next-title">Protect the next 10 minutes, not forever.</p>
+          <p id="triggerCoachCopy" class="subtle">Pick the trigger that matches this moment and the app will give you a short, specific response plan.</p>
+          <div id="triggerCoachSteps" class="coach-steps"></div>
+        </section>
 
 	      <section class="card">
 	        <div class="section-head">
