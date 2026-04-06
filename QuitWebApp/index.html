@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="QuitQuest" />
   <title>QuitQuest - Smoke & Vape Quit Game</title>
-  <link rel="stylesheet" href="styles.css?v=20260406-nrt-sheet-pass" />
+  <link rel="stylesheet" href="styles.css?v=20260406-onboarding-gate" />
 </head>
 <body>
   <div class="ambient">
@@ -18,6 +18,73 @@
   </div>
 
   <main class="phone-shell">
+    <section id="welcomeGate" class="welcome-gate" hidden>
+      <section class="card welcome-hero-card">
+        <p class="kicker">QuitQuest</p>
+        <h1>Start With A Real Quit</h1>
+        <p class="subtle">No fake timers and no assumed quit date. Choose how you want to begin, then answer the same setup questions from Profile.</p>
+      </section>
+
+      <section class="card welcome-choice-card">
+        <div class="section-head">
+          <h2>How Are You Starting?</h2>
+          <span id="welcomeModePill" class="pill">Choose</span>
+        </div>
+        <div class="welcome-choice-grid">
+          <button class="mode-choice primary-btn" data-onboarding-mode="already_quit">I Already Quit</button>
+          <button class="mode-choice secondary-btn" data-onboarding-mode="quit_now">I Quit Now</button>
+          <button class="mode-choice secondary-btn" data-onboarding-mode="planning_to_quit">I Am Planning To Quit</button>
+        </div>
+      </section>
+
+      <section id="welcomeFormCard" class="card welcome-form-card" hidden>
+        <div class="section-head">
+          <h2 id="welcomeFormTitle">Set Up Your Quit</h2>
+          <span id="welcomeFormModeLabel" class="pill">Ready</span>
+        </div>
+        <p id="welcomeFormCopy" class="subtle">Answer a few quick questions to build the app around your actual quit.</p>
+        <label id="welcomeQuitDateWrap">Quit date/time
+          <input id="welcomeQuitDateInput" type="datetime-local" />
+        </label>
+        <label>Product
+          <select id="welcomeProductTypeInput">
+            <option value="cigarettes">Cigarettes</option>
+            <option value="vape">Vape</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+        <label>Currency
+          <select id="welcomeCurrencyInput">
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="AED">AED (د.إ)</option>
+            <option value="INR">INR (₹)</option>
+            <option value="CAD">CAD (C$)</option>
+            <option value="AUD">AUD (A$)</option>
+          </select>
+        </label>
+        <label>Daily use (cigs or sessions)
+          <input id="welcomeDailyInput" type="number" min="1" max="200" step="1" placeholder="Example: 20" />
+        </label>
+        <label>Cost per pack/pod
+          <input id="welcomeCostInput" type="number" min="0" max="200" step="0.01" placeholder="Example: 24" />
+        </label>
+        <label>Units per pack/pod
+          <input id="welcomePackSizeInput" type="number" min="1" max="100" step="1" />
+        </label>
+        <label>Cigarette strength
+          <select id="welcomeCigaretteStrengthInput">
+            <option value="mild">Mild</option>
+            <option value="medium">Medium</option>
+            <option value="strong">Strong</option>
+          </select>
+        </label>
+        <p id="welcomeBaselineEstimateText" class="subtle">Estimated baseline nicotine: 0 mg/day</p>
+        <button id="welcomeStartBtn" class="primary-btn">Start My Quit</button>
+      </section>
+    </section>
+
     <header class="app-top reveal-1">
       <div>
         <p class="kicker">QuitQuest</p>
@@ -398,6 +465,6 @@
     </nav>
   </main>
 
-  <script src="app.js?v=20260406-nrt-sheet-pass"></script>
+  <script src="app.js?v=20260406-onboarding-gate"></script>
 </body>
 </html>

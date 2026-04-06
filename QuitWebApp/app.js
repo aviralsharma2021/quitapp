@@ -1,12 +1,13 @@
 const STORAGE_KEY = "quitQuestStateV1";
 
 const DEFAULT_STATE = {
-  quitDate: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-  streakStartAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+  quitDate: "",
+  streakStartAt: "",
+  profileCompleted: false,
   productType: "cigarettes",
   currency: "USD",
-  dailyConsumption: 15,
-  costPerPack: 12,
+  dailyConsumption: 0,
+  costPerPack: 0,
   packSize: 20,
   cigaretteStrength: "medium",
   nrtMode: "log",
@@ -323,8 +324,25 @@ let levelUpSequenceIndex = 0;
 let lastNicotineTrendSignature = "";
 let lastNRTLogListSignature = "";
 let activeNRTLogSwipe = null;
+let onboardingMode = "";
 
 const el = {
+  welcomeGate: document.getElementById("welcomeGate"),
+  welcomeModePill: document.getElementById("welcomeModePill"),
+  welcomeFormCard: document.getElementById("welcomeFormCard"),
+  welcomeFormTitle: document.getElementById("welcomeFormTitle"),
+  welcomeFormModeLabel: document.getElementById("welcomeFormModeLabel"),
+  welcomeFormCopy: document.getElementById("welcomeFormCopy"),
+  welcomeQuitDateWrap: document.getElementById("welcomeQuitDateWrap"),
+  welcomeQuitDateInput: document.getElementById("welcomeQuitDateInput"),
+  welcomeProductTypeInput: document.getElementById("welcomeProductTypeInput"),
+  welcomeCurrencyInput: document.getElementById("welcomeCurrencyInput"),
+  welcomeDailyInput: document.getElementById("welcomeDailyInput"),
+  welcomeCostInput: document.getElementById("welcomeCostInput"),
+  welcomePackSizeInput: document.getElementById("welcomePackSizeInput"),
+  welcomeCigaretteStrengthInput: document.getElementById("welcomeCigaretteStrengthInput"),
+  welcomeBaselineEstimateText: document.getElementById("welcomeBaselineEstimateText"),
+  welcomeStartBtn: document.getElementById("welcomeStartBtn"),
   levelRing: document.getElementById("levelRing"),
   levelValue: document.getElementById("levelValue"),
   timeClean: document.getElementById("timeClean"),
@@ -425,6 +443,7 @@ const el = {
 };
 
 wireTabs();
+wireWelcomeGate();
 wireHomeActions();
 wireProfileSheet();
 wireNRTSheet();
@@ -434,20 +453,29 @@ wireFilters();
 wireNRTConfigActions();
 wireMilestoneActions();
 
-seedDailyQuests();
 hydrateProfileForm();
+hydrateWelcomeForm();
 hydrateNRTControls();
 hydrateNicotinePlanForm();
-const startupWeeklySummaries = runWeeklySmokingReviewIfDue();
-renderAll();
-queueMissedMilestones();
+const startupWeeklySummaries = hasConfiguredProfile() ? runWeeklySmokingReviewIfDue() : [];
+if (hasConfiguredProfile()) {
+  seedDailyQuests();
+  renderAll();
+  queueMissedMilestones();
+} else {
+  renderWelcomeGate();
+}
 if (startupWeeklySummaries.length) {
   window.alert(startupWeeklySummaries.join("\n"));
   showFeedback(startupWeeklySummaries[startupWeeklySummaries.length - 1]);
 }
-window.addEventListener("resize", renderNicotineTrendChart);
+window.addEventListener("resize", () => {
+  if (!hasConfiguredProfile()) return;
+  renderNicotineTrendChart();
+});
 
 setInterval(() => {
+  if (!hasConfiguredProfile()) return;
   renderAll();
   queueMissedMilestones();
 }, 1000);
@@ -473,6 +501,10 @@ function loadState() {
     merged.nrtMode = merged.nrtMode === "config" ? "config" : "log";
     merged.nrtSelectedProduct = NRT_PRODUCTS.includes(merged.nrtSelectedProduct) ? merged.nrtSelectedProduct : "gum";
     merged.legacyNRTMigrationDone = Boolean(parsed?.legacyNRTMigrationDone);
+    const parsedQuitMs = new Date(parsed?.quitDate || "").getTime();
+    merged.profileCompleted = typeof parsed?.profileCompleted === "boolean"
+      ? parsed.profileCompleted
+      : Number.isFinite(parsedQuitMs);
     migrateLegacyNRTCountsToLogs(parsed, merged);
     stripLegacyNRTFields(merged);
     return merged;
@@ -704,25 +736,31 @@ function getNow() {
   return Date.now();
 }
 
+function hasConfiguredProfile() {
+  const quitMs = new Date(state.quitDate || "").getTime();
+  return Boolean(state.profileCompleted) && Number.isFinite(quitMs);
+}
+
 function getQuitDateMs() {
-  const quitMs = new Date(state.quitDate).getTime();
-  if (Number.isFinite(quitMs)) return quitMs;
-  const now = getNow();
-  state.quitDate = new Date(now).toISOString();
-  return now;
+  return new Date(state.quitDate || "").getTime();
 }
 
 function isPlanningMode() {
-  return getQuitDateMs() > getNow();
+  const quitMs = getQuitDateMs();
+  return Number.isFinite(quitMs) && quitMs > getNow();
 }
 
 function getHoursUntilQuit() {
-  const remainingMs = getQuitDateMs() - getNow();
+  const quitMs = getQuitDateMs();
+  if (!Number.isFinite(quitMs)) return 0;
+  const remainingMs = quitMs - getNow();
   return Math.max(0, remainingMs / (1000 * 60 * 60));
 }
 
 function getElapsedMs() {
-  const diff = getNow() - getQuitDateMs();
+  const quitMs = getQuitDateMs();
+  if (!Number.isFinite(quitMs)) return 0;
+  const diff = getNow() - quitMs;
   return Math.max(0, diff);
 }
 
@@ -907,7 +945,9 @@ function getTrustScore() {
 }
 
 function getStreakDays() {
-  const diff = getNow() - new Date(state.streakStartAt).getTime();
+  const streakMs = new Date(state.streakStartAt || "").getTime();
+  if (!Number.isFinite(streakMs)) return 0;
+  const diff = getNow() - streakMs;
   return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 }
 
@@ -1435,6 +1475,7 @@ function applyWeeklySmokingReview(window) {
 }
 
 function runWeeklySmokingReviewIfDue() {
+  if (!hasConfiguredProfile()) return [];
   if (!isDayKey(state.lastWeeklyReviewDate)) {
     state.lastWeeklyReviewDate = getTodayKey();
     saveState();
@@ -1499,6 +1540,20 @@ function wireTabs() {
       switchTab(btn.dataset.tab);
     });
   });
+}
+
+function wireWelcomeGate() {
+  document.querySelectorAll("[data-onboarding-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      onboardingMode = String(btn.dataset.onboardingMode || "");
+      renderWelcomeGate();
+    });
+  });
+
+  if (el.welcomeStartBtn) el.welcomeStartBtn.addEventListener("click", saveWelcomeProfileForm);
+  if (el.welcomeDailyInput) el.welcomeDailyInput.addEventListener("input", renderWelcomeBaselineEstimatePreview);
+  if (el.welcomeProductTypeInput) el.welcomeProductTypeInput.addEventListener("change", renderWelcomeBaselineEstimatePreview);
+  if (el.welcomeCigaretteStrengthInput) el.welcomeCigaretteStrengthInput.addEventListener("change", renderWelcomeBaselineEstimatePreview);
 }
 
 function wireProfileSheet() {
@@ -1583,12 +1638,73 @@ function closeNRTHistorySheet() {
   closeOpenNRTLogSwipe();
 }
 
+function getOnboardingModeConfig(mode) {
+  if (mode === "already_quit") {
+    return {
+      pill: "Past Quit",
+      title: "Tell us when you already quit",
+      label: "Already Quit",
+      copy: "Use your real past quit date so milestones and health timing line up with your actual run.",
+      needsDate: true
+    };
+  }
+  if (mode === "planning_to_quit") {
+    return {
+      pill: "Future Quit",
+      title: "Set your planned quit date",
+      label: "Planning To Quit",
+      copy: "Choose a future quit date and the app will start in prep mode instead of pretending the quit already began.",
+      needsDate: true
+    };
+  }
+  return {
+    pill: "Quit Now",
+    title: "Start your quit now",
+    label: "Quit Now",
+    copy: "Your quit start will be the moment you tap Start My Quit.",
+    needsDate: false
+  };
+}
+
+function renderWelcomeGate() {
+  const active = !hasConfiguredProfile();
+  document.body.classList.toggle("onboarding-active", active);
+  if (!el.welcomeGate) return;
+  el.welcomeGate.hidden = !active;
+  if (!active) return;
+
+  const config = onboardingMode ? getOnboardingModeConfig(onboardingMode) : null;
+  if (el.welcomeModePill) el.welcomeModePill.textContent = config?.pill || "Choose";
+  if (el.welcomeFormCard) el.welcomeFormCard.hidden = !config;
+  if (!config) return;
+
+  if (el.welcomeFormTitle) el.welcomeFormTitle.textContent = config.title;
+  if (el.welcomeFormModeLabel) el.welcomeFormModeLabel.textContent = config.label;
+  if (el.welcomeFormCopy) el.welcomeFormCopy.textContent = config.copy;
+  if (el.welcomeQuitDateWrap) el.welcomeQuitDateWrap.hidden = !config.needsDate;
+  if (!config.needsDate && el.welcomeQuitDateInput) el.welcomeQuitDateInput.value = "";
+}
+
+function hydrateWelcomeForm() {
+  if (!el.welcomeProductTypeInput) return;
+  onboardingMode = "";
+  el.welcomeProductTypeInput.value = state.productType || "cigarettes";
+  el.welcomeCurrencyInput.value = state.currency || "USD";
+  el.welcomeDailyInput.value = Number(state.dailyConsumption || 0) > 0 ? String(state.dailyConsumption) : "";
+  el.welcomeCostInput.value = Number(state.costPerPack || 0) > 0 ? String(state.costPerPack) : "";
+  el.welcomePackSizeInput.value = String(Math.max(1, Number(state.packSize || 20)));
+  el.welcomeCigaretteStrengthInput.value = normalizeCigaretteStrength(state.cigaretteStrength);
+  el.welcomeQuitDateInput.value = "";
+  renderWelcomeBaselineEstimatePreview();
+  renderWelcomeGate();
+}
+
 function hydrateProfileForm() {
   el.quitDateInput.value = toDatetimeLocal(state.quitDate);
   el.productTypeInput.value = state.productType;
   el.currencyInput.value = state.currency || "USD";
-  el.dailyInput.value = String(state.dailyConsumption);
-  el.costInput.value = String(state.costPerPack);
+  el.dailyInput.value = Number(state.dailyConsumption || 0) > 0 ? String(state.dailyConsumption) : "";
+  el.costInput.value = Number(state.costPerPack || 0) > 0 ? String(state.costPerPack) : "";
   el.packSizeInput.value = String(state.packSize);
   el.cigaretteStrengthInput.value = normalizeCigaretteStrength(state.cigaretteStrength);
   renderBaselineEstimatePreview();
@@ -1596,8 +1712,84 @@ function hydrateProfileForm() {
 
 function toDatetimeLocal(isoDate) {
   const d = new Date(isoDate);
+  if (!Number.isFinite(d.getTime())) return "";
   const pad2 = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function finalizeProfileSetup(mode, quitDate) {
+  clearProgressForFreshRun();
+  state.profileCompleted = true;
+  state.quitDate = quitDate.toISOString();
+  state.streakStartAt = state.quitDate;
+  if (mode === "planning_to_quit") {
+    state.nicotinePlan = normalizeNicotinePlan({ ...state.nicotinePlan, startDate: state.quitDate.slice(0, 10) });
+  }
+
+  milestoneQueue = [];
+  queueMode = false;
+  activeMilestone = null;
+  levelUpContinuation = null;
+  levelUpSequence = [];
+  levelUpSequenceIndex = 0;
+  closeMilestoneModal();
+  hideLevelUpModal();
+
+  seedDailyQuests();
+  updateDailyNicotineHistory();
+  saveState();
+  hydrateProfileForm();
+  hydrateWelcomeForm();
+  hydrateNRTControls();
+  hydrateNicotinePlanForm();
+  switchTab("homeTab");
+  renderAll();
+  queueMissedMilestones();
+}
+
+function saveWelcomeProfileForm() {
+  if (!onboardingMode) {
+    window.alert("Choose how you are starting first.");
+    return;
+  }
+
+  const now = new Date();
+  let quitDate = null;
+  if (onboardingMode === "quit_now") {
+    quitDate = now;
+  } else {
+    quitDate = new Date(el.welcomeQuitDateInput?.value || "");
+    if (!Number.isFinite(quitDate.getTime())) {
+      window.alert("Set a valid quit date/time.");
+      return;
+    }
+    if (onboardingMode === "already_quit" && quitDate.getTime() > now.getTime()) {
+      window.alert("Already quit needs a past date/time.");
+      return;
+    }
+    if (onboardingMode === "planning_to_quit" && quitDate.getTime() <= now.getTime()) {
+      window.alert("Planning mode needs a future quit date/time.");
+      return;
+    }
+  }
+
+  const dailyConsumption = Math.max(1, Number(el.welcomeDailyInput?.value || 0));
+  const costPerPack = Math.max(0, Number(el.welcomeCostInput?.value || 0));
+  const packSize = Math.max(1, Number(el.welcomePackSizeInput?.value || 0));
+  if (!dailyConsumption || !packSize) {
+    window.alert("Fill in your daily use and units per pack/pod.");
+    return;
+  }
+
+  state.productType = String(el.welcomeProductTypeInput?.value || "cigarettes");
+  state.currency = String(el.welcomeCurrencyInput?.value || "USD");
+  state.dailyConsumption = dailyConsumption;
+  state.costPerPack = costPerPack;
+  state.packSize = packSize;
+  state.cigaretteStrength = normalizeCigaretteStrength(el.welcomeCigaretteStrengthInput?.value || "medium");
+
+  finalizeProfileSetup(onboardingMode, quitDate);
+  showFeedback(onboardingMode === "planning_to_quit" ? "Planning mode ready." : "Quit profile saved.");
 }
 
 function saveProfileForm() {
@@ -1609,6 +1801,7 @@ function saveProfileForm() {
 
   state.quitDate = maybeQuitDate.toISOString();
   if (!state.streakStartAt) state.streakStartAt = state.quitDate;
+  state.profileCompleted = true;
 
   state.productType = el.productTypeInput.value;
   state.currency = el.currencyInput.value || "USD";
@@ -1755,6 +1948,7 @@ function resetProgressFlow() {
   }
 
   clearProgressForFreshRun();
+  state.profileCompleted = true;
   state.quitDate = quitDate.toISOString();
   state.streakStartAt = state.quitDate;
 
@@ -1776,6 +1970,7 @@ function resetProgressFlow() {
   updateDailyNicotineHistory();
   saveState();
   hydrateProfileForm();
+  hydrateWelcomeForm();
   hydrateNRTControls();
   hydrateNicotinePlanForm();
   renderAll();
@@ -1785,10 +1980,7 @@ function resetProgressFlow() {
   showFeedback(`Progress reset (${modeLabel}). Quit date/time: ${quitText}`);
 }
 
-function estimateBaselineNicotineFromInputs() {
-  const productType = String(el.productTypeInput?.value || state.productType || "cigarettes");
-  const usage = Math.max(0, Number(el.dailyInput?.value || state.dailyConsumption || 0));
-  const strength = normalizeCigaretteStrength(el.cigaretteStrengthInput?.value || state.cigaretteStrength);
+function estimateBaselineNicotine(productType, usage, strength) {
   const mgPerCig = Number(CIGARETTE_STRENGTH_NICOTINE_MG[strength] || CIGARETTE_STRENGTH_NICOTINE_MG.medium);
 
   if (productType === "cigarettes") return usage * mgPerCig;
@@ -1796,26 +1988,35 @@ function estimateBaselineNicotineFromInputs() {
   return usage * ((mgPerCig + 1.0) / 2);
 }
 
-function renderBaselineEstimatePreview() {
-  if (!el.baselineEstimateText || !el.cigaretteStrengthInput) return;
-  const productType = String(el.productTypeInput?.value || state.productType || "cigarettes");
-  const estimate = Math.max(0, estimateBaselineNicotineFromInputs());
-  const strength = normalizeCigaretteStrength(el.cigaretteStrengthInput.value || state.cigaretteStrength);
+function renderBaselineEstimateText(productTypeInput, dailyInput, strengthInput, output) {
+  if (!output || !strengthInput) return;
+  const productType = String(productTypeInput?.value || state.productType || "cigarettes");
+  const usage = Math.max(0, Number(dailyInput?.value || state.dailyConsumption || 0));
+  const strength = normalizeCigaretteStrength(strengthInput.value || state.cigaretteStrength);
+  const estimate = Math.max(0, estimateBaselineNicotine(productType, usage, strength));
   const strengthLabel = strength.charAt(0).toUpperCase() + strength.slice(1);
 
   if (productType === "vape") {
-    el.cigaretteStrengthInput.disabled = true;
-    el.baselineEstimateText.textContent = `Estimated baseline nicotine: ${estimate.toFixed(1)} mg/day (vape session model).`;
+    strengthInput.disabled = true;
+    output.textContent = `Estimated baseline nicotine: ${estimate.toFixed(1)} mg/day (vape session model).`;
     return;
   }
 
-  el.cigaretteStrengthInput.disabled = false;
+  strengthInput.disabled = false;
   if (productType === "both") {
-    el.baselineEstimateText.textContent = `Estimated baseline nicotine: ${estimate.toFixed(1)} mg/day (cigarettes + vape model, ${strengthLabel} cigarettes).`;
+    output.textContent = `Estimated baseline nicotine: ${estimate.toFixed(1)} mg/day (cigarettes + vape model, ${strengthLabel} cigarettes).`;
     return;
   }
 
-  el.baselineEstimateText.textContent = `Estimated baseline nicotine: ${estimate.toFixed(1)} mg/day (${strengthLabel} cigarettes).`;
+  output.textContent = `Estimated baseline nicotine: ${estimate.toFixed(1)} mg/day (${strengthLabel} cigarettes).`;
+}
+
+function renderBaselineEstimatePreview() {
+  renderBaselineEstimateText(el.productTypeInput, el.dailyInput, el.cigaretteStrengthInput, el.baselineEstimateText);
+}
+
+function renderWelcomeBaselineEstimatePreview() {
+  renderBaselineEstimateText(el.welcomeProductTypeInput, el.welcomeDailyInput, el.welcomeCigaretteStrengthInput, el.welcomeBaselineEstimateText);
 }
 
 function getNRTProductLabel(product) {
@@ -3014,6 +3215,7 @@ function showNextMilestoneFromQueue() {
 }
 
 function queueMissedMilestones() {
+  if (!hasConfiguredProfile()) return;
   if (!el.milestoneModal || !el.levelUpModal) return;
   if (!el.milestoneModal.classList.contains("hidden") || !el.levelUpModal.classList.contains("hidden")) return;
 
@@ -3275,6 +3477,9 @@ function renderTriggerCoach() {
 }
 
 function renderAll() {
+  renderWelcomeGate();
+  if (!hasConfiguredProfile()) return;
+
   updateDailyNicotineHistory();
   const quitMs = getQuitDateMs();
   const nowMs = getNow();

@@ -111,6 +111,42 @@ body {
   z-index: 9;
 }
 
+body.onboarding-active .app-top,
+body.onboarding-active .tab-pane,
+body.onboarding-active .bottom-nav {
+  display: none !important;
+}
+
+body.onboarding-active .phone-shell {
+  padding-top: 18px;
+}
+
+.welcome-gate {
+  display: grid;
+  gap: 14px;
+  min-height: 100%;
+  align-content: start;
+}
+
+.welcome-hero-card {
+  background: linear-gradient(155deg, rgba(241, 253, 249, 0.96), rgba(255, 250, 244, 0.88));
+}
+
+.welcome-choice-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.mode-choice {
+  min-height: 54px;
+}
+
+.welcome-form-card {
+  display: grid;
+  gap: 10px;
+}
+
 .app-top {
   display: flex;
   align-items: center;
