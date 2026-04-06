@@ -151,10 +151,15 @@ h2 {
   gap: 14px;
   padding-bottom: 8px;
   scroll-padding-bottom: 120px;
+  min-width: 0;
 }
 
 .tab-pane.active {
   display: grid;
+}
+
+.tab-pane > * {
+  min-width: 0;
 }
 
 .card {
@@ -164,6 +169,7 @@ h2 {
   padding: 14px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(16px);
+  min-width: 0;
 }
 
 .hero {
@@ -227,6 +233,21 @@ h2 {
   gap: 8px;
   font-size: 0.83rem;
   color: var(--muted);
+}
+
+.hero > *,
+.hero-row > *,
+.section-head > *,
+.quest-item > *,
+.trigger-grid > *,
+.rescue-actions > *,
+.mile-head > *,
+.nrt-prod > *,
+.nrt-plan-grid > *,
+.quick-patch-grid > *,
+.coach-step > *,
+.protect-actions > * {
+  min-width: 0;
 }
 
 .hero-mood {
@@ -304,6 +325,8 @@ h2 {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .next-title {
@@ -472,6 +495,7 @@ button {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
   margin-bottom: 8px;
+  min-width: 0;
 }
 
 .rescue-actions {
@@ -479,6 +503,7 @@ button {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 8px;
+  min-width: 0;
 }
 
 .feedback {
@@ -685,6 +710,7 @@ label {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  min-width: 0;
 }
 
 .nrt-prod-title {
@@ -742,6 +768,7 @@ label {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  min-width: 0;
 }
 
 .coach-card {
@@ -800,6 +827,27 @@ select {
   color: var(--text);
   padding: 11px;
   font: inherit;
+  min-width: 0;
+  width: 100%;
+}
+
+.section-head h2,
+.next-title,
+.subtle,
+.mile-title,
+.mile-meta,
+.mile-desc,
+.feedback,
+.coach-step p,
+.hero-mood {
+  overflow-wrap: anywhere;
+}
+
+.trigger-grid .chip,
+.rescue-actions button,
+.quick-patch-grid button,
+.protect-actions button {
+  white-space: normal;
 }
 
 .reveal-1,
