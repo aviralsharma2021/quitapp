@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>QuitQuest - Smoke & Vape Quit Game</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient">
+    <span class="orb orb-a"></span>
+    <span class="orb orb-b"></span>
+    <span class="orb orb-c"></span>
+  </div>
+
+  <main class="phone-shell">
+    <header class="app-top reveal-1">
+      <div>
+        <p class="kicker">QuitQuest</p>
+        <h1>Future You Wins</h1>
+      </div>
+      <button id="openProfile" class="chip-btn">Profile</button>
+    </header>
+
+    <section id="homeTab" class="tab-pane active">
+      <section class="hero card reveal-2">
+        <div class="ring-wrap">
+          <div id="levelRing" class="ring" style="--progress: 0.32;">
+            <div class="ring-inner">
+              <p class="small-label">LEVEL</p>
+              <p id="levelValue" class="big-number">1</p>
+            </div>
+          </div>
+        </div>
+        <div class="hero-metrics">
+          <p class="small-label">SMOKE/VAPE FREE</p>
+          <p id="timeClean" class="timer">00:00:00</p>
+          <div class="hero-row">
+            <span id="xpText">0 XP</span>
+            <span id="trustScore">Trust 50</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-grid reveal-3">
+        <article class="card stat-card">
+          <p>Money Saved</p>
+          <h3 id="moneySaved">$0.00</h3>
+        </article>
+        <article class="card stat-card">
+          <p>Cigs/Puffs Avoided</p>
+          <h3 id="cigsAvoided">0</h3>
+        </article>
+        <article class="card stat-card">
+          <p>Cravings Resisted</p>
+          <h3 id="cravingsResisted">0</h3>
+        </article>
+        <article class="card stat-card">
+          <p>Streak Shields</p>
+          <h3 id="shieldCount">0</h3>
+        </article>
+        <article class="card stat-card">
+          <p>NRT Spent</p>
+          <h3 id="nrtSpent">$0.00</h3>
+        </article>
+        <article class="card stat-card">
+          <p>Net Savings</p>
+          <h3 id="netSavings">$0.00</h3>
+        </article>
+        <article class="card stat-card">
+          <p>Nicotine Today</p>
+          <h3 id="nicotineToday">0 mg</h3>
+        </article>
+        <article class="card stat-card">
+          <p>Nicotine Reduction</p>
+          <h3 id="nicotineReduction">0%</h3>
+        </article>
+      </section>
+
+      <section class="card reveal-4">
+        <div class="section-head">
+          <h2>Next Unlock</h2>
+          <span id="nextUnlockEta" class="pill">Soon</span>
+        </div>
+        <p id="nextUnlockTitle" class="next-title">Complete setup to begin</p>
+        <p id="nextUnlockDesc" class="subtle">Your shortest path to momentum appears here.</p>
+      </section>
+
+      <section class="card reveal-5">
+        <div class="section-head">
+          <h2>Daily Quests</h2>
+          <span id="questCount" class="pill">0/3</span>
+        </div>
+        <ul id="questList" class="quest-list"></ul>
+      </section>
+    </section>
+
+	    <section id="cravingTab" class="tab-pane">
+	      <section class="card">
+        <h2>Craving Rescue</h2>
+        <p class="subtle">When the urge hits, run a 90-second surf cycle. The peak usually passes.</p>
+
+        <div class="rescue-center">
+          <div id="rescueRing" class="rescue-ring" style="--rescue-progress: 0;">
+            <div>
+              <p class="small-label">TIMER</p>
+              <p id="rescueTime">01:30</p>
+            </div>
+          </div>
+          <button id="startRescue" class="primary-btn">Start Rescue</button>
+        </div>
+
+        <div class="trigger-grid">
+          <button class="chip trigger" data-trigger="Stress">Stress</button>
+          <button class="chip trigger" data-trigger="Boredom">Boredom</button>
+          <button class="chip trigger" data-trigger="After meal">After meal</button>
+          <button class="chip trigger" data-trigger="Coffee">Coffee</button>
+          <button class="chip trigger" data-trigger="Work break">Work break</button>
+          <button class="chip trigger" data-trigger="Social">Social</button>
+        </div>
+
+        <p id="selectedTrigger" class="subtle">Trigger: not set</p>
+
+        <div class="rescue-actions">
+          <button id="logResisted" class="secondary-btn">Log "I resisted" (+XP)</button>
+          <button id="logSlip" class="danger-btn">Log slip</button>
+        </div>
+
+	        <p id="rescueFeedback" class="feedback"></p>
+	      </section>
+
+	      <section class="card">
+	        <div class="section-head">
+	          <h2>NRT (Log-Based)</h2>
+	          <button id="openNRTSheet" class="chip-btn">Patch Profiles</button>
+	        </div>
+	        <p class="subtle">Create named patch profiles in Patch Profiles. Log current or historical usage here.</p>
+	        <p id="nrtQuickSummary" class="subtle"></p>
+
+	        <div class="quick-patch-wrap">
+	          <p class="nrt-prod-title">Quick Apply Saved Patches</p>
+	          <div id="quickApplyCustomPatchList" class="timeline"></div>
+	          <div class="quick-patch-grid">
+	            <button id="quickLogPatch24" class="primary-btn">Apply Built-in Patch 24h</button>
+	            <button id="quickLogPatch16" class="secondary-btn">Apply Built-in Patch 16h</button>
+	          </div>
+	          <p id="quickPatchInfo" class="subtle"></p>
+	        </div>
+
+	        <div class="nrt-prod">
+	          <p class="nrt-prod-title">Log NRT (Now or Historical)</p>
+	          <label>Log date/time
+	            <input id="nrtHistoryDateTimeInput" type="datetime-local" />
+	          </label>
+	          <button id="nrtHistoryUseNowBtn" class="secondary-btn">Use Current Time</button>
+	          <label>NRT type
+	            <select id="nrtHistoryTypeSelect"></select>
+	          </label>
+	          <label>Quantity
+	            <input id="nrtHistoryQuantityInput" type="number" min="1" max="50" step="1" />
+	          </label>
+	          <button id="nrtHistoryLogBtn" class="primary-btn">Log Entry</button>
+	          <button id="undoLastNRTLog" class="secondary-btn">Undo Last NRT Log</button>
+	        </div>
+
+	        <p id="nrtConfigNote" class="subtle"></p>
+	        <div id="nrtLogList" class="timeline"></div>
+
+	        <div class="nrt-plan-wrap">
+	          <h3>Nicotine Trend</h3>
+	          <p class="subtle">Daily nicotine mg from your logs and taper plan, so you can track the direction.</p>
+	          <div class="trend-canvas-wrap">
+	            <canvas id="nicotineTrendChart" height="220"></canvas>
+	          </div>
+	          <p id="nicotineTrendSummary" class="subtle"></p>
+	        </div>
+	      </section>
+	    </section>
+
+    <section id="milestonesTab" class="tab-pane">
+      <section class="card">
+        <div class="section-head">
+          <h2>Milestones</h2>
+          <span class="pill">Dense mode</span>
+        </div>
+        <p class="subtle">Daily through day 14, then still frequent so day-8+ stays rewarding.</p>
+      </section>
+
+      <section class="chips-row">
+        <button class="chip filter active" data-filter="all">All</button>
+        <button class="chip filter" data-filter="prep">Prep</button>
+        <button class="chip filter" data-filter="health">Health</button>
+        <button class="chip filter" data-filter="symptom">Body</button>
+        <button class="chip filter" data-filter="nicotine">Nicotine</button>
+        <button class="chip filter" data-filter="momentum">Momentum</button>
+        <button class="chip filter" data-filter="money">Money</button>
+        <button class="chip filter" data-filter="resilience">Resilience</button>
+      </section>
+
+      <section id="milestoneList" class="timeline"></section>
+    </section>
+
+    <section id="researchTab" class="tab-pane">
+      <section class="card">
+        <h2>Evidence-Based Design</h2>
+        <p class="subtle">Built from cessation and gamification literature. Educational support only, not medical advice.</p>
+        <ul class="evidence-list">
+          <li>CDC timelines for recovery milestones</li>
+          <li>Smokefree/CDC withdrawal guidance (early high-risk window)</li>
+          <li>Body-change evidence labels (constipation: moderate, acne: mixed)</li>
+          <li>JMIR and meta-analysis signals for gamification engagement</li>
+          <li>Contingency management evidence for frequent early rewards</li>
+        </ul>
+        <a href="RESEARCH.md" class="text-link">Open full research notes</a>
+        <a href="GAME_STRATEGY.md" class="text-link">Open game strategy blueprint</a>
+      </section>
+
+      <section class="card">
+        <h2>Safety</h2>
+        <p class="subtle">If cravings feel overwhelming or you feel unwell, use professional support.</p>
+        <a class="text-link" href="https://smokefree.gov/" target="_blank" rel="noreferrer">Smokefree.gov</a>
+        <a class="text-link" href="https://www.cdc.gov/tobacco/campaign/tips/quit-smoking/index.html" target="_blank" rel="noreferrer">CDC Quit Resources</a>
+      </section>
+    </section>
+
+	    <section id="profileSheet" class="sheet hidden" aria-hidden="true">
+      <div class="sheet-backdrop" id="closeProfileBackdrop"></div>
+      <div class="sheet-card">
+        <div class="section-head">
+          <h2>Profile Setup</h2>
+          <button id="closeProfile" class="chip-btn">Done</button>
+        </div>
+        <label>Quit date/time
+          <input id="quitDateInput" type="datetime-local" />
+        </label>
+        <label>Product
+          <select id="productTypeInput">
+            <option value="cigarettes">Cigarettes</option>
+            <option value="vape">Vape</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+        <label>Currency
+          <select id="currencyInput">
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="AED">AED (د.إ)</option>
+            <option value="INR">INR (₹)</option>
+            <option value="CAD">CAD (C$)</option>
+            <option value="AUD">AUD (A$)</option>
+          </select>
+        </label>
+        <label>Daily use (cigs or sessions)
+          <input id="dailyInput" type="number" min="1" max="200" step="1" />
+        </label>
+        <label>Cost per pack/pod
+          <input id="costInput" type="number" min="0" max="200" step="0.01" />
+        </label>
+        <label>Units per pack/pod
+          <input id="packSizeInput" type="number" min="1" max="100" step="1" />
+        </label>
+        <label>Cigarette strength
+          <select id="cigaretteStrengthInput">
+            <option value="mild">Mild</option>
+            <option value="medium">Medium</option>
+            <option value="strong">Strong</option>
+          </select>
+        </label>
+        <p id="baselineEstimateText" class="subtle">Estimated baseline nicotine: 0 mg/day</p>
+        <p class="subtle">Configure and log NRT in the Crave tab.</p>
+        <button id="saveProfile" class="primary-btn">Save Profile</button>
+        <button id="resetProgress" class="danger-btn">Reset Progress</button>
+      </div>
+	    </section>
+
+	    <section id="nrtSheet" class="sheet hidden" aria-hidden="true">
+	      <div class="sheet-backdrop" id="closeNRTBackdrop"></div>
+	      <div class="sheet-card">
+	        <div class="section-head">
+	          <h2>Custom Patch Profiles</h2>
+	          <button id="closeNRT" class="chip-btn">Done</button>
+	        </div>
+	        <p class="subtle">Create named patch profiles once. You can quick-apply or historical-log by profile name from Crave.</p>
+	        <label>Profile name
+	          <input id="customPatchNameInput" type="text" maxlength="60" placeholder="Example: Week 2 Patch" />
+	        </label>
+	        <div class="nrt-plan-grid">
+	          <label>Wear time (hours)
+	            <input id="customPatchHoursInput" type="number" min="1" max="72" step="1" />
+	          </label>
+	          <label>Strength (mg/patch)
+	            <input id="customPatchMgInput" type="number" min="0.1" max="50" step="0.1" />
+	          </label>
+	          <label>Patches per box
+	            <input id="customPatchBoxUnitsInput" type="number" min="1" max="200" step="1" />
+	          </label>
+	          <label>Box cost
+	            <input id="customPatchBoxCostInput" type="number" min="0" max="500" step="0.01" />
+	          </label>
+	        </div>
+	        <button id="saveCustomPatch" class="primary-btn">Save Patch Profile</button>
+	        <div id="customPatchList" class="timeline"></div>
+	      </div>
+	    </section>
+
+    <section id="milestoneModal" class="sheet hidden" aria-hidden="true">
+      <div class="sheet-backdrop"></div>
+      <div class="sheet-card milestone-sheet">
+        <p class="small-label">Milestone Ready</p>
+        <h2 id="milestoneModalTitle">Unlock Milestone</h2>
+        <p id="milestoneModalDesc" class="subtle"></p>
+        <p id="milestoneModalMeta" class="subtle"></p>
+        <div class="rescue-actions">
+          <button id="milestoneUnlockBtn" class="primary-btn">Unlock</button>
+          <button id="milestoneUnlockAllBtn" class="secondary-btn">Unlock All Ready</button>
+          <button id="milestoneSkipBtn" class="secondary-btn">Skip (No XP)</button>
+          <button id="milestoneSkipAllBtn" class="danger-btn">Skip All Ready</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="levelUpModal" class="sheet hidden" aria-hidden="true">
+      <div class="sheet-backdrop"></div>
+      <div class="sheet-card levelup-sheet">
+        <p class="small-label">Celebration</p>
+        <h2 id="levelUpTitle">Milestone Unlocked</h2>
+        <p id="levelUpMilestone" class="subtle"></p>
+        <p id="levelUpText" class="levelup-number">Level 2</p>
+        <p id="levelUpProgressText" class="subtle">0% to next level</p>
+        <div class="level-progress-track">
+          <div id="levelUpProgressFill" class="level-progress-fill"></div>
+        </div>
+        <div class="rescue-actions">
+          <button id="levelUpContinueBtn" class="primary-btn">Continue</button>
+          <button id="levelUpSkipBtn" class="secondary-btn">Skip Remaining</button>
+        </div>
+      </div>
+    </section>
+
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="homeTab">Home</button>
+      <button class="nav-item" data-tab="cravingTab">Crave</button>
+      <button class="nav-item" data-tab="milestonesTab">Milestones</button>
+      <button class="nav-item" data-tab="researchTab">Research</button>
+    </nav>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
